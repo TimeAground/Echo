@@ -535,7 +535,7 @@ impl ShortcutAction for TranscribeAction {
                 } else {
                     // Save WAV concurrently with transcription
                     let sample_count = samples.len();
-                    let file_name = format!("handy-{}.wav", chrono::Utc::now().timestamp());
+                    let file_name = format!("echo-{}.wav", chrono::Utc::now().timestamp());
                     let wav_path = hm.recordings_dir().join(&file_name);
                     let wav_path_for_verify = wav_path.clone();
                     let samples_for_wav = samples.clone();
@@ -604,21 +604,31 @@ impl ShortcutAction for TranscribeAction {
                                 change_tray_icon(&ah, TrayIconState::Idle);
                             } else {
                                 let ah_clone = ah.clone();
-                                let paste_time = Instant::now();
                                 let final_text = processed.final_text;
                                 ah.run_on_main_thread(move || {
-                                    match utils::paste(final_text, ah_clone.clone()) {
-                                        Ok(()) => debug!(
-                                            "Text pasted successfully in {:?}",
-                                            paste_time.elapsed()
-                                        ),
-                                        Err(e) => {
-                                            error!("Failed to paste transcription: {}", e);
-                                            let _ = ah_clone.emit("paste-error", ());
+                                    if post_process {
+                                        // AI mode: emit result for floating window
+                                        let _ = ah_clone.emit("ai-result", serde_json::json!({
+                                            "text": final_text,
+                                        }));
+                                        utils::hide_recording_overlay(&ah_clone);
+                                        change_tray_icon(&ah_clone, TrayIconState::Idle);
+                                    } else {
+                                        // Normal dictation mode: paste directly
+                                        let paste_time = Instant::now();
+                                        match utils::paste(final_text, ah_clone.clone()) {
+                                            Ok(()) => debug!(
+                                                "Text pasted successfully in {:?}",
+                                                paste_time.elapsed()
+                                            ),
+                                            Err(e) => {
+                                                error!("Failed to paste transcription: {}", e);
+                                                let _ = ah_clone.emit("paste-error", ());
+                                            }
                                         }
+                                        utils::hide_recording_overlay(&ah_clone);
+                                        change_tray_icon(&ah_clone, TrayIconState::Idle);
                                     }
-                                    utils::hide_recording_overlay(&ah_clone);
-                                    change_tray_icon(&ah_clone, TrayIconState::Idle);
                                 })
                                 .unwrap_or_else(|e| {
                                     error!("Failed to run paste on main thread: {:?}", e);

@@ -75,8 +75,8 @@ const getSupportedLanguage = (
 // Language will be synced from settings after init
 i18n.use(initReactI18next).init({
   resources,
-  lng: "en",
-  fallbackLng: "en",
+  lng: "zh",
+  fallbackLng: "zh",
   interpolation: {
     escapeValue: false, // React already escapes values
   },

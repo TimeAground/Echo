@@ -180,7 +180,7 @@ Function PageInstallType
     Abort
   ${EndIf}
 
-  !insertmacro MUI_HEADER_TEXT "Choose Install Type" "Select how you want to install ${PRODUCTNAME}."
+  !insertmacro MUI_HEADER_TEXT "$(INSTALL_TYPE_TITLE)" "$(INSTALL_TYPE_SUBTITLE)"
 
   nsDialogs::Create 1018
   Pop $0
@@ -188,19 +188,19 @@ Function PageInstallType
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 24u "Choose whether to perform a normal installation or a portable installation."
+  ${NSD_CreateLabel} 0 0 100% 24u "$(INSTALL_TYPE_DESC)"
   Pop $0
 
-  ${NSD_CreateRadioButton} 30u 35u -30u 12u "Normal Installation (recommended)"
+  ${NSD_CreateRadioButton} 30u 35u -30u 12u "$(INSTALL_TYPE_NORMAL)"
   Pop $InstallTypeRadioNormal
 
-  ${NSD_CreateLabel} 44u 49u -44u 20u "Installs to your system with Start Menu shortcuts, uninstaller, and auto-update support."
+  ${NSD_CreateLabel} 44u 49u -44u 20u "$(INSTALL_TYPE_NORMAL_DESC)"
   Pop $0
 
-  ${NSD_CreateRadioButton} 30u 75u -30u 12u "Portable Installation"
+  ${NSD_CreateRadioButton} 30u 75u -30u 12u "$(INSTALL_TYPE_PORTABLE)"
   Pop $InstallTypeRadioPortable
 
-  ${NSD_CreateLabel} 44u 89u -44u 20u "Self-contained folder with no registry changes, shortcuts, or uninstaller. Data stored next to the app."
+  ${NSD_CreateLabel} 44u 89u -44u 20u "$(INSTALL_TYPE_PORTABLE_DESC)"
   Pop $0
 
   ; Pre-select based on current state
@@ -531,6 +531,22 @@ FunctionEnd
   !include "{{this}}"
 {{/each}}
 
+; Custom installer strings — Simplified Chinese & English
+LangString INSTALL_TYPE_TITLE ${LANG_ENGLISH} "Choose Install Type"
+LangString INSTALL_TYPE_TITLE ${LANG_SIMPCHINESE} "选择安装类型"
+LangString INSTALL_TYPE_SUBTITLE ${LANG_ENGLISH} "Select how you want to install ${PRODUCTNAME}."
+LangString INSTALL_TYPE_SUBTITLE ${LANG_SIMPCHINESE} "选择 ${PRODUCTNAME} 的安装方式。"
+LangString INSTALL_TYPE_DESC ${LANG_ENGLISH} "Choose whether to perform a normal installation or a portable installation."
+LangString INSTALL_TYPE_DESC ${LANG_SIMPCHINESE} "选择标准安装或便携安装。"
+LangString INSTALL_TYPE_NORMAL ${LANG_ENGLISH} "Normal Installation (recommended)"
+LangString INSTALL_TYPE_NORMAL ${LANG_SIMPCHINESE} "标准安装（推荐）"
+LangString INSTALL_TYPE_NORMAL_DESC ${LANG_ENGLISH} "Installs to your system with Start Menu shortcuts, uninstaller, and auto-update support."
+LangString INSTALL_TYPE_NORMAL_DESC ${LANG_SIMPCHINESE} "安装到系统，包含开始菜单快捷方式、卸载程序和自动更新支持。"
+LangString INSTALL_TYPE_PORTABLE ${LANG_ENGLISH} "Portable Installation"
+LangString INSTALL_TYPE_PORTABLE ${LANG_SIMPCHINESE} "便携安装"
+LangString INSTALL_TYPE_PORTABLE_DESC ${LANG_ENGLISH} "Self-contained folder with no registry changes, shortcuts, or uninstaller. Data stored next to the app."
+LangString INSTALL_TYPE_PORTABLE_DESC ${LANG_SIMPCHINESE} "自包含文件夹，不修改注册表、不创建快捷方式、无卸载程序。数据存放在应用同级目录。"
+
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
@@ -597,7 +613,7 @@ Function .onInit
     FileOpen $1 "$INSTDIR\portable" r
     FileRead $1 $2
     FileClose $1
-    ${If} $2 == "Handy Portable Mode"
+    ${If} $2 == "Echo Portable Mode"
       StrCpy $PortableMode 1
     ${OrIf} $2 == ""
     ${AndIf} ${FileExists} "$INSTDIR\Data"
@@ -768,7 +784,7 @@ Section Install
   ; --- PORTABLE MODE --- Create portable marker and Data directory
   ${If} $PortableMode = 1
     FileOpen $0 "$INSTDIR\portable" w
-    FileWrite $0 "Handy Portable Mode"
+    FileWrite $0 "Echo Portable Mode"
     FileClose $0
     CreateDirectory "$INSTDIR\Data"
     DetailPrint "Portable mode: created marker file and Data directory."

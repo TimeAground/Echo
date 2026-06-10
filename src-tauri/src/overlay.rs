@@ -385,6 +385,69 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
     }
 }
 
+// ── Floating Answer Window ──────────────────────────────────────────
+
+const FLOATING_WIDTH: f64 = 380.0;
+const FLOATING_HEIGHT: f64 = 320.0;
+
+/// Create the floating answer window (hidden by default)
+#[cfg(not(target_os = "macos"))]
+pub fn create_floating_window(app_handle: &AppHandle) {
+    let builder = WebviewWindowBuilder::new(
+        app_handle,
+        "floating_answer",
+        tauri::WebviewUrl::App("src/floating/index.html".into()),
+    )
+    .title("Echo AI")
+    .resizable(true)
+    .inner_size(FLOATING_WIDTH, FLOATING_HEIGHT)
+    .shadow(true)
+    .maximizable(false)
+    .minimizable(false)
+    .closable(false)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .transparent(true)
+    .focused(false)
+    .visible(false);
+
+    #[allow(unused_variables)]
+    match builder.build() {
+        Ok(window) => {
+            debug!("Floating answer window created successfully (hidden)");
+        }
+        Err(e) => {
+            debug!("Failed to create floating answer window: {}", e);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn create_floating_window(app_handle: &AppHandle) {
+    match PanelBuilder::<_, RecordingOverlayPanel>::new(app_handle, "floating_answer")
+        .url(WebviewUrl::App("src/floating/index.html".into()))
+        .title("Echo AI")
+        .level(PanelLevel::Status)
+        .size(tauri::Size::Logical(tauri::LogicalSize {
+            width: FLOATING_WIDTH,
+            height: FLOATING_HEIGHT,
+        }))
+        .has_shadow(true)
+        .transparent(true)
+        .no_activate(false)
+        .with_window(|w| w.decorations(false).transparent(true))
+        .build()
+    {
+        Ok(panel) => {
+            let _ = panel.hide();
+        }
+        Err(e) => {
+            log::error!("Failed to create floating answer panel: {}", e);
+        }
+    }
+}
+
 pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
     // emit levels to main app
     let _ = app_handle.emit("mic-level", levels);

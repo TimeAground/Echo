@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { ModelInfo } from "@/bindings";
 import type { ModelCardStatus } from "./ModelCard";
 import ModelCard from "./ModelCard";
-import HandyTextLogo from "../icons/HandyTextLogo";
+import EchoTextLogo from "../icons/EchoTextLogo";
 import { useModelStore } from "../../stores/modelStore";
 
 interface OnboardingProps {
@@ -26,6 +26,20 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   const isDownloading = selectedModelId !== null;
+
+  // Auto-download the recommended model on mount for new users
+  const autoDownloadStarted = React.useRef(false);
+  useEffect(() => {
+    if (autoDownloadStarted.current) return;
+    const recommended = models.find((m) => m.is_recommended && !m.is_downloaded);
+    if (recommended && !isDownloading) {
+      autoDownloadStarted.current = true;
+      setSelectedModelId(recommended.id);
+      downloadModel(recommended.id).then((success) => {
+        if (!success) setSelectedModelId(null);
+      });
+    }
+  }, [models, isDownloading, downloadModel]);
 
   // Watch for the selected model to finish downloading + verifying + extracting
   useEffect(() => {
@@ -91,7 +105,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   return (
     <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
       <div className="flex flex-col items-center gap-2 shrink-0">
-        <HandyTextLogo width={200} />
+        <EchoTextLogo width={200} />
         <p className="text-text/70 max-w-md font-medium mx-auto">
           {t("onboarding.subtitle")}
         </p>

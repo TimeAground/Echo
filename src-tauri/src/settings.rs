@@ -197,7 +197,7 @@ impl Default for PasteMethod {
 
 impl Default for ClipboardHandling {
     fn default() -> Self {
-        ClipboardHandling::DontModify
+        ClipboardHandling::CopyToClipboard
     }
 }
 
@@ -504,7 +504,7 @@ fn default_sound_theme() -> SoundTheme {
 }
 
 fn default_post_process_enabled() -> bool {
-    false
+    true
 }
 
 fn default_app_language() -> String {
@@ -713,14 +713,17 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
 pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
+    // Dictation: Alt+Q on all platforms
+    // AI Mode: Alt+Z on all platforms
+    // Floating Window: Alt+X on all platforms
     #[cfg(target_os = "windows")]
-    let default_shortcut = "ctrl+space";
+    let default_shortcut = "alt+q";
     #[cfg(target_os = "macos")]
-    let default_shortcut = "option+space";
+    let default_shortcut = "alt+q";
     #[cfg(target_os = "linux")]
-    let default_shortcut = "ctrl+space";
+    let default_shortcut = "alt+q";
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    let default_shortcut = "alt+space";
+    let default_shortcut = "alt+q";
 
     let mut bindings = HashMap::new();
     bindings.insert(
@@ -733,14 +736,17 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: default_shortcut.to_string(),
         },
     );
+    // Note: The transcribe_with_post_process shortcut still uses old default
+    // since Handy's original design merged AI post-processing into transcription.
+    // Echo will add dedicated AI mode and floating window shortcuts separately.
     #[cfg(target_os = "windows")]
-    let default_post_process_shortcut = "ctrl+shift+space";
+    let default_post_process_shortcut = "alt+z";
     #[cfg(target_os = "macos")]
-    let default_post_process_shortcut = "option+shift+space";
+    let default_post_process_shortcut = "alt+z";
     #[cfg(target_os = "linux")]
-    let default_post_process_shortcut = "ctrl+shift+space";
+    let default_post_process_shortcut = "alt+z";
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    let default_post_process_shortcut = "alt+shift+space";
+    let default_post_process_shortcut = "alt+z";
 
     bindings.insert(
         "transcribe_with_post_process".to_string(),

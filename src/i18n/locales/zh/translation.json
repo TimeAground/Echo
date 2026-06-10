@@ -194,6 +194,10 @@
           "transcribe_with_post_process": {
             "name": "后处理快捷键",
             "description": "可选：一个专用快捷键，始终对您的转录应用 AI 后处理。"
+          },
+          "floating_window": {
+            "name": "浮动窗口",
+            "description": "切换显示 AI 结果浮动窗口。"
           }
         },
         "errors": {
