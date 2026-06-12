@@ -42,3 +42,9 @@ blob-report/
 
 # Nix build output
 result
+
+# Local debug/cache artifacts
+.cargo-home/
+.dbg/
+debug-ai-route-no-output.md
+run-cargo-wrapper.bat
