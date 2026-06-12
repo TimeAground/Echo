@@ -16,6 +16,18 @@ pub fn cancel_operation(app: AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
+pub fn get_floating_result() -> Option<String> {
+    crate::utils::get_floating_result()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn close_floating_window(app: AppHandle) {
+    crate::utils::hide_floating_window(&app);
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn is_portable() -> bool {
     crate::portable::is_portable()
 }

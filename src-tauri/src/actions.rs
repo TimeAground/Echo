@@ -407,6 +407,7 @@ impl ShortcutAction for TranscribeAction {
         let binding_id = binding_id.to_string();
         change_tray_icon(app, TrayIconState::Recording);
         show_recording_overlay(app);
+        utils::hide_floating_window(app);
 
         // Get the microphone mode to determine audio feedback timing
         let settings = get_settings(app);
@@ -607,10 +608,29 @@ impl ShortcutAction for TranscribeAction {
                                 let final_text = processed.final_text;
                                 ah.run_on_main_thread(move || {
                                     if post_process {
-                                        // AI mode: emit result for floating window
-                                        let _ = ah_clone.emit("ai-result", serde_json::json!({
-                                            "text": final_text,
-                                        }));
+                                        let has_focus = utils::has_editable_focus(&ah_clone);
+
+                                        if has_focus {
+                                            let paste_time = Instant::now();
+                                            match utils::paste(final_text.clone(), ah_clone.clone()) {
+                                                Ok(()) => debug!(
+                                                    "AI result pasted successfully in {:?}",
+                                                    paste_time.elapsed()
+                                                ),
+                                                Err(e) => {
+                                                    warn!(
+                                                        "Failed to paste AI result, falling back to floating window: {}",
+                                                        e
+                                                    );
+                                                    let _ = utils::show_floating_result(
+                                                        &ah_clone, &final_text,
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            let _ =
+                                                utils::show_floating_result(&ah_clone, &final_text);
+                                        }
                                         utils::hide_recording_overlay(&ah_clone);
                                         change_tray_icon(&ah_clone, TrayIconState::Idle);
                                     } else {

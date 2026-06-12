@@ -3,14 +3,143 @@ use crate::input::{self, EnigoState};
 use crate::settings::TypingTool;
 use crate::settings::{get_settings, AutoSubmitKey, ClipboardHandling, PasteMethod};
 use enigo::{Direction, Enigo, Key, Keyboard};
-use log::info;
+use log::{debug, info, warn};
 use std::process::Command;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+#[cfg(target_os = "windows")]
+use windows::Win32::{
+    System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED},
+    UI::{
+        Accessibility::{
+            CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationTextPattern,
+            IUIAutomationValuePattern, UIA_DocumentControlTypeId, UIA_EditControlTypeId,
+            UIA_TextPatternId, UIA_ValuePatternId,
+        },
+        WindowsAndMessaging::{GetGUIThreadInfo, GUITHREADINFO},
+    },
+};
+
 #[cfg(target_os = "linux")]
 use crate::utils::{is_kde_wayland, is_wayland};
+
+pub fn has_editable_focus(_app_handle: &AppHandle) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        return has_editable_focus_windows();
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn has_editable_focus_windows() -> bool {
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+
+        let automation: IUIAutomation =
+            match CoCreateInstance(&CUIAutomation, None, CLSCTX_ALL) {
+                Ok(automation) => automation,
+                Err(err) => {
+                    warn!("Failed to initialize UI Automation: {}", err);
+                    return false;
+                }
+            };
+
+        let element = match automation.GetFocusedElement() {
+            Ok(element) => element,
+            Err(err) => {
+                debug!("Failed to get focused UI element: {}", err);
+                return false;
+            }
+        };
+
+        is_windows_element_editable(&element)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn has_visible_caret_on_windows() -> bool {
+    unsafe {
+        let mut info: GUITHREADINFO = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+
+        if !GetGUIThreadInfo(0, &mut info).is_ok() {
+            return false;
+        }
+
+        !info.hwndCaret.0.is_null() || info.rcCaret.right > info.rcCaret.left
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn supports_writable_value_pattern(element: &IUIAutomationElement) -> bool {
+    unsafe {
+        let pattern = match element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)
+        {
+            Ok(pattern) => pattern,
+            Err(_) => return false,
+        };
+
+        pattern
+            .CurrentIsReadOnly()
+            .map(|is_read_only| !is_read_only.as_bool())
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn is_windows_element_editable(element: &IUIAutomationElement) -> bool {
+    let caret_visible = has_visible_caret_on_windows();
+
+    unsafe {
+        let is_enabled = element
+            .CurrentIsEnabled()
+            .map(|enabled| enabled.as_bool())
+            .unwrap_or(true);
+        if !is_enabled {
+            return false;
+        }
+
+        let is_password = element
+            .CurrentIsPassword()
+            .map(|is_password| is_password.as_bool())
+            .unwrap_or(false);
+        if is_password {
+            return false;
+        }
+
+        let control_type = element.CurrentControlType().ok();
+        if let Some(control_type) = control_type {
+            if control_type == UIA_EditControlTypeId {
+                return true;
+            }
+
+            if control_type == UIA_DocumentControlTypeId && caret_visible {
+                return true;
+            }
+        }
+
+        let value_writable = supports_writable_value_pattern(element);
+        if value_writable {
+            return true;
+        }
+
+        let has_text_pattern = element
+            .GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+            .is_ok();
+        if caret_visible && has_text_pattern {
+            return true;
+        }
+    }
+
+    caret_visible
+}
 
 /// Pastes text using the clipboard: saves current content, writes text, sends paste keystroke, restores clipboard.
 fn paste_via_clipboard(

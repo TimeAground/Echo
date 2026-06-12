@@ -137,22 +137,6 @@ function App() {
     };
   }, [t]);
 
-  // Listen for AI result events (floating window)
-  useEffect(() => {
-    const unlisten = listen("ai-result", (event) => {
-      const payload = event.payload as { text: string };
-      if (payload?.text) {
-        toast.success("AI 结果已生成", {
-          description: payload.text.substring(0, 200),
-          duration: 5000,
-        });
-      }
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
   // Listen for model loading failures and show a toast
   useEffect(() => {
     const unlisten = listen<ModelStateEvent>("model-state-changed", (event) => {

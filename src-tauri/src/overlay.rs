@@ -1,10 +1,9 @@
 use crate::input;
 use crate::settings;
 use crate::settings::OverlayPosition;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
-
-#[cfg(not(target_os = "macos"))]
 use log::debug;
+use std::sync::{Mutex, OnceLock};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
 #[cfg(not(target_os = "macos"))]
 use tauri::WebviewWindowBuilder;
@@ -390,27 +389,60 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
 const FLOATING_WIDTH: f64 = 380.0;
 const FLOATING_HEIGHT: f64 = 320.0;
 
+fn floating_result_store() -> &'static Mutex<Option<String>> {
+    static FLOATING_RESULT: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+    FLOATING_RESULT.get_or_init(|| Mutex::new(None))
+}
+
+fn calculate_floating_position(app_handle: &AppHandle) -> Option<(f64, f64)> {
+    let monitor = get_monitor_with_cursor(app_handle)?;
+    let scale = monitor.scale_factor();
+    let monitor_x = monitor.position().x as f64 / scale;
+    let monitor_y = monitor.position().y as f64 / scale;
+    let monitor_width = monitor.size().width as f64 / scale;
+    let monitor_height = monitor.size().height as f64 / scale;
+
+    let x = monitor_x + (monitor_width - FLOATING_WIDTH) / 2.0;
+    let y = monitor_y + (monitor_height - FLOATING_HEIGHT) / 2.0;
+
+    Some((x, y))
+}
+
+pub fn get_floating_result() -> Option<String> {
+    floating_result_store().lock().ok().and_then(|value| value.clone())
+}
+
 /// Create the floating answer window (hidden by default)
 #[cfg(not(target_os = "macos"))]
 pub fn create_floating_window(app_handle: &AppHandle) {
-    let builder = WebviewWindowBuilder::new(
+    let position = calculate_floating_position(app_handle);
+    let mut builder = WebviewWindowBuilder::new(
         app_handle,
         "floating_answer",
         tauri::WebviewUrl::App("src/floating/index.html".into()),
     )
     .title("Echo AI")
-    .resizable(true)
+    .resizable(false)
     .inner_size(FLOATING_WIDTH, FLOATING_HEIGHT)
     .shadow(true)
     .maximizable(false)
     .minimizable(false)
     .closable(false)
+    .accept_first_mouse(true)
     .decorations(false)
     .always_on_top(true)
     .skip_taskbar(true)
     .transparent(true)
     .focused(false)
     .visible(false);
+
+    if let Some((x, y)) = position {
+        builder = builder.position(x, y);
+    }
+
+    if let Some(data_dir) = crate::portable::data_dir() {
+        builder = builder.data_directory(data_dir.join("webview"));
+    }
 
     #[allow(unused_variables)]
     match builder.build() {
@@ -435,7 +467,7 @@ pub fn create_floating_window(app_handle: &AppHandle) {
         }))
         .has_shadow(true)
         .transparent(true)
-        .no_activate(false)
+        .no_activate(true)
         .with_window(|w| w.decorations(false).transparent(true))
         .build()
     {
@@ -446,6 +478,43 @@ pub fn create_floating_window(app_handle: &AppHandle) {
             log::error!("Failed to create floating answer panel: {}", e);
         }
     }
+}
+
+pub fn hide_floating_window(app_handle: &AppHandle) {
+    if let Some(window) = app_handle.get_webview_window("floating_answer") {
+        let _ = window.hide();
+    }
+}
+
+pub fn show_floating_result(app_handle: &AppHandle, text: &str) -> Result<(), String> {
+    if let Ok(mut value) = floating_result_store().lock() {
+        *value = Some(text.to_string());
+    }
+
+    let window = app_handle
+        .get_webview_window("floating_answer")
+        .ok_or("Floating answer window is not available")?;
+
+    if let Some((x, y)) = calculate_floating_position(app_handle) {
+        let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+    }
+
+    window
+        .emit(
+            "ai-result",
+            serde_json::json!({
+                "text": text,
+            }),
+        )
+        .map_err(|e| format!("Failed to emit floating result: {}", e))?;
+
+    window
+        .show()
+        .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
+
+    let _ = window.set_focus();
+
+    Ok(())
 }
 
 pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
