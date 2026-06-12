@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "git.repositoryScanIgnoredFolders": [
+      ".cargo-home",
+      ".dbg",
+      "node_modules",
+      "dist",
+      "src-tauri/target"
+    ]
+  }
+}
