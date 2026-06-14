@@ -4,7 +4,6 @@ import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { SettingContainer } from "../../ui/SettingContainer";
-import { Button } from "../../ui/Button";
 import { AppDataDirectory } from "../AppDataDirectory";
 import { AppLanguageSelector } from "../AppLanguageSelector";
 import { LogDirectory } from "../debug";
@@ -27,16 +26,8 @@ export const AboutSettings: React.FC = () => {
     fetchVersion();
   }, []);
 
-  const handleDonateClick = async () => {
-    try {
-      await openUrl("https://handy.computer/donate");
-    } catch (error) {
-      console.error("Failed to open donate link:", error);
-    }
-  };
-
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <SettingsGroup title={t("settings.about.title")}>
         <AppLanguageSelector descriptionMode="tooltip" grouped={true} />
         <SettingContainer
@@ -45,17 +36,9 @@ export const AboutSettings: React.FC = () => {
           grouped={true}
         >
           {/* eslint-disable-next-line i18next/no-literal-string */}
-          <span className="text-sm font-mono">v{version}</span>
-        </SettingContainer>
-
-        <SettingContainer
-          title={t("settings.about.supportDevelopment.title")}
-          description={t("settings.about.supportDevelopment.description")}
-          grouped={true}
-        >
-          <Button variant="primary" size="md" onClick={handleDonateClick}>
-            {t("settings.about.supportDevelopment.button")}
-          </Button>
+          <span className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm font-mono text-white/82">
+            v{version}
+          </span>
         </SettingContainer>
 
         <SettingContainer
@@ -63,13 +46,13 @@ export const AboutSettings: React.FC = () => {
           description={t("settings.about.sourceCode.description")}
           grouped={true}
         >
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => openUrl("https://github.com/cjpais/Handy")}
+          <button
+            type="button"
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/88 transition hover:border-white/16 hover:bg-white/[0.08]"
+            onClick={() => openUrl("https://github.com/TimeAground/Echo")}
           >
             {t("settings.about.sourceCode.button")}
-          </Button>
+          </button>
         </SettingContainer>
 
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
@@ -83,7 +66,7 @@ export const AboutSettings: React.FC = () => {
           grouped={true}
           layout="stacked"
         >
-          <div className="text-sm text-mid-gray">
+          <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-7 text-white/56">
             {t("settings.about.acknowledgments.whisper.details")}
           </div>
         </SettingContainer>

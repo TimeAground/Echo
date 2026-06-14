@@ -30,8 +30,8 @@ tauri_panel! {
     })
 }
 
-const OVERLAY_WIDTH: f64 = 172.0;
-const OVERLAY_HEIGHT: f64 = 36.0;
+const OVERLAY_WIDTH: f64 = 284.0;
+const OVERLAY_HEIGHT: f64 = 64.0;
 
 #[cfg(target_os = "macos")]
 const OVERLAY_TOP_OFFSET: f64 = 46.0;
@@ -386,8 +386,8 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
 
 // ── Floating Answer Window ──────────────────────────────────────────
 
-const FLOATING_WIDTH: f64 = 380.0;
-const FLOATING_HEIGHT: f64 = 320.0;
+const FLOATING_WIDTH: f64 = 420.0;
+const FLOATING_HEIGHT: f64 = 300.0;
 
 fn floating_result_store() -> &'static Mutex<Option<String>> {
     static FLOATING_RESULT: OnceLock<Mutex<Option<String>>> = OnceLock::new();
@@ -500,19 +500,27 @@ pub fn show_floating_result(app_handle: &AppHandle, text: &str) -> Result<(), St
     }
 
     window
-        .emit(
-            "ai-result",
-            serde_json::json!({
-                "text": text,
-            }),
-        )
-        .map_err(|e| format!("Failed to emit floating result: {}", e))?;
-
-    window
         .show()
         .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
 
     let _ = window.set_focus();
+
+    let payload = serde_json::json!({
+        "text": text,
+    });
+
+    window
+        .emit("ai-result", payload.clone())
+        .map_err(|e| format!("Failed to emit floating result: {}", e))?;
+
+    let app_handle_clone = app_handle.clone();
+    let delayed_payload = payload.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        if let Some(window) = app_handle_clone.get_webview_window("floating_answer") {
+            let _ = window.emit("ai-result", delayed_payload);
+        }
+    });
 
     Ok(())
 }

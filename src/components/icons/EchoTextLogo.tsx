@@ -14,69 +14,86 @@ const EchoTextLogo = ({
       width={width}
       height={height}
       className={className}
-      viewBox="0 0 400 140"
+      viewBox="0 0 500 140"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* E */}
+      <defs>
+        <linearGradient id="echo-logo-gradient" x1="18" y1="16" x2="116" y2="118">
+          <stop offset="0%" stopColor="#5EA2FF" />
+          <stop offset="48%" stopColor="#9284FF" />
+          <stop offset="100%" stopColor="#5F6EFF" />
+        </linearGradient>
+        <linearGradient id="echo-logo-arc" x1="44" y1="40" x2="97" y2="85">
+          <stop offset="0%" stopColor="#EEF5FF" />
+          <stop offset="100%" stopColor="#B2A8FF" />
+        </linearGradient>
+      </defs>
+      <circle cx="68" cy="72" r="42" stroke="url(#echo-logo-gradient)" strokeWidth="12" />
+      <circle cx="68" cy="72" r="31" stroke="rgba(255,255,255,0.10)" strokeWidth="1.2" />
+      <g transform="translate(68 72)">
+        <g>
+          <path
+            d="M-10.1 -24.26A26 26 0 0 1 10.1 -24.26"
+            stroke="url(#echo-logo-arc)"
+            strokeWidth="3.1"
+            strokeLinecap="round"
+            opacity="0.92"
+          />
+          <path
+            d="M-5.14 -14.89A16 16 0 0 1 5.14 -14.89"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="1.55"
+            strokeLinecap="round"
+          />
+        </g>
+        <g transform="rotate(120)">
+          <path
+            d="M-10.1 -24.26A26 26 0 0 1 10.1 -24.26"
+            stroke="url(#echo-logo-arc)"
+            strokeWidth="3.1"
+            strokeLinecap="round"
+            opacity="0.92"
+          />
+          <path
+            d="M-5.14 -14.89A16 16 0 0 1 5.14 -14.89"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="1.55"
+            strokeLinecap="round"
+          />
+        </g>
+        <g transform="rotate(240)">
+          <path
+            d="M-10.1 -24.26A26 26 0 0 1 10.1 -24.26"
+            stroke="url(#echo-logo-arc)"
+            strokeWidth="3.1"
+            strokeLinecap="round"
+            opacity="0.92"
+          />
+          <path
+            d="M-5.14 -14.89A16 16 0 0 1 5.14 -14.89"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="1.55"
+            strokeLinecap="round"
+          />
+        </g>
+      </g>
+      <circle cx="68" cy="72" r="12" fill="#F3F6FF" />
+      <circle cx="68" cy="72" r="5.2" fill="url(#echo-logo-gradient)" />
+
+      <path d="M136 47H222" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+      <path d="M136 72H202" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+      <path d="M136 97H222" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
       <path
-        d="M30 20 L80 20 M30 20 L30 120 M30 70 L70 70 M30 120 L80 120"
+        d="M294 37C278.536 37 266 49.536 266 65V79C266 94.464 278.536 107 294 107H332"
         stroke="currentColor"
-        strokeWidth="14"
+        strokeWidth="12"
         strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        className="logo-primary"
       />
-      {/* C */}
-      <path
-        d="M160 20 C120 20 100 50 100 70 C100 90 120 120 160 120"
-        stroke="currentColor"
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        className="logo-primary"
-      />
-      {/* H */}
-      <path
-        d="M190 20 L190 120 M190 70 L240 70 M240 20 L240 120"
-        stroke="currentColor"
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        className="logo-primary"
-      />
-      {/* O */}
-        <path
-        d="M340 70 C340 40 320 20 290 20 C260 20 240 40 240 70 C240 100 260 120 290 120 C320 120 340 100 340 70Z"
-        stroke="currentColor"
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        className="logo-primary"
-      />
-      {/* Sound wave accent - right of O */}
-      <path
-        d="M360 50 Q375 70 360 90"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-        className="logo-primary"
-        opacity="0.6"
-      />
-      <path
-        d="M370 40 Q390 70 370 100"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-        className="logo-primary"
-        opacity="0.4"
-      />
+      <path d="M356 37V107" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+      <path d="M418 37V107" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+      <path d="M356 72H418" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+      <circle cx="461" cy="72" r="29" stroke="url(#echo-logo-gradient)" strokeWidth="12" />
     </svg>
   );
 };

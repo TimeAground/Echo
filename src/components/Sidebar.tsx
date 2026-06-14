@@ -93,34 +93,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .map(([id, config]) => ({ id: id as SidebarSection, ...config }));
 
   return (
-    <div className="flex flex-col w-40 h-full border-e border-mid-gray/20 items-center px-2">
-      <EchoTextLogo width={120} className="m-4" />
-      <div className="flex flex-col w-full items-center gap-1 pt-2 border-t border-mid-gray/20">
+    <aside className="flex h-full w-[220px] shrink-0 flex-col border-e border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_30%)] px-3 py-4">
+      <div className="mb-4 px-3 pb-2 pt-1">
+        <EchoTextLogo width={146} className="block max-w-full text-white" />
+      </div>
+      <div className="flex flex-1 flex-col gap-2">
         {availableSections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;
 
           return (
-            <div
+            <button
               key={section.id}
-              className={`flex gap-2 items-center p-2 w-full rounded-lg cursor-pointer transition-colors ${
+              type="button"
+              className={`group relative flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
                 isActive
-                  ? "bg-logo-primary/80"
-                  : "hover:bg-mid-gray/20 hover:opacity-100 opacity-85"
+                  ? "border-[#7b6ef6]/35 bg-[linear-gradient(135deg,rgba(123,110,246,0.26),rgba(94,162,255,0.14))] text-white shadow-[0_12px_28px_rgba(123,110,246,0.18)]"
+                  : "border-white/0 bg-white/[0.02] text-white/72 hover:border-white/10 hover:bg-white/[0.05] hover:text-white"
               }`}
               onClick={() => onSectionChange(section.id)}
             >
-              <Icon width={24} height={24} className="shrink-0" />
-              <p
-                className="text-sm font-medium truncate"
+              {isActive && (
+                <span className="absolute inset-y-3 left-2 w-[3px] rounded-full bg-[linear-gradient(180deg,rgba(94,162,255,0.96),rgba(123,110,246,0.98))] shadow-[0_0_16px_rgba(123,110,246,0.32)]" />
+              )}
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                  isActive
+                    ? "border-white/15 bg-white/10 text-white"
+                    : "border-white/6 bg-white/[0.03] text-white/65 group-hover:text-white/90"
+                }`}
+              >
+                <Icon width={18} height={18} className="shrink-0" />
+              </span>
+              <span
+                className="truncate text-sm font-medium"
                 title={t(section.labelKey)}
               >
                 {t(section.labelKey)}
-              </p>
-            </div>
+              </span>
+            </button>
           );
         })}
       </div>
-    </div>
+    </aside>
   );
 };

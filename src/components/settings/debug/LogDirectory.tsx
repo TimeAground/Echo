@@ -59,11 +59,11 @@ export const LogDirectory: React.FC<LogDirectoryProps> = ({
       layout="stacked"
     >
       {loading ? (
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-100 rounded" />
+        <div className="animate-pulse rounded-xl border border-white/8 bg-white/[0.03] p-4">
+          <div className="h-10 rounded-xl bg-white/6" />
         </div>
       ) : error ? (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+        <div className="rounded-xl border border-red-400/16 bg-red-500/8 p-4 text-xs text-red-200/88">
           {t("errors.loadDirectory", { error })}
         </div>
       ) : (

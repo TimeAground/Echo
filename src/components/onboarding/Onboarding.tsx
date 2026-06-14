@@ -103,52 +103,64 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
-      <div className="flex flex-col items-center gap-2 shrink-0">
-        <EchoTextLogo width={200} />
-        <p className="text-text/70 max-w-md font-medium mx-auto">
-          {t("onboarding.subtitle")}
-        </p>
-      </div>
+    <div className="app-shell">
+      <div className="app-window">
+        <div className="app-scroll-area">
+          <div className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-6 sm:px-8 sm:py-8">
+            <div className="flex items-center gap-4 px-1">
+              <EchoTextLogo width={124} />
+              <div className="min-w-0">
+                <h1 className="app-panel-title text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+                  {t("settings.models.title")}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-white/66 sm:text-[15px]">
+                  {t("onboarding.subtitle")}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+              <div className="space-y-4">
+                {models
+                  .filter((m: ModelInfo) => !m.is_downloaded)
+                  .filter((model: ModelInfo) => model.is_recommended)
+                  .map((model: ModelInfo) => (
+                    <ModelCard
+                      key={model.id}
+                      model={model}
+                      variant="featured"
+                      status={getModelStatus(model.id)}
+                      disabled={isDownloading}
+                      onSelect={handleDownloadModel}
+                      onDownload={handleDownloadModel}
+                      downloadProgress={getModelDownloadProgress(model.id)}
+                      downloadSpeed={getModelDownloadSpeed(model.id)}
+                    />
+                  ))}
+              </div>
 
-      <div className="max-w-[600px] w-full mx-auto text-center flex-1 flex flex-col min-h-0">
-        <div className="flex flex-col gap-4 pb-6">
-          {models
-            .filter((m: ModelInfo) => !m.is_downloaded)
-            .filter((model: ModelInfo) => model.is_recommended)
-            .map((model: ModelInfo) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                variant="featured"
-                status={getModelStatus(model.id)}
-                disabled={isDownloading}
-                onSelect={handleDownloadModel}
-                onDownload={handleDownloadModel}
-                downloadProgress={getModelDownloadProgress(model.id)}
-                downloadSpeed={getModelDownloadSpeed(model.id)}
-              />
-            ))}
-
-          {models
-            .filter((m: ModelInfo) => !m.is_downloaded)
-            .filter((model: ModelInfo) => !model.is_recommended)
-            .sort(
-              (a: ModelInfo, b: ModelInfo) =>
-                Number(a.size_mb) - Number(b.size_mb),
-            )
-            .map((model: ModelInfo) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                status={getModelStatus(model.id)}
-                disabled={isDownloading}
-                onSelect={handleDownloadModel}
-                onDownload={handleDownloadModel}
-                downloadProgress={getModelDownloadProgress(model.id)}
-                downloadSpeed={getModelDownloadSpeed(model.id)}
-              />
-            ))}
+              <div className="space-y-4">
+                {models
+                  .filter((m: ModelInfo) => !m.is_downloaded)
+                  .filter((model: ModelInfo) => !model.is_recommended)
+                  .sort(
+                    (a: ModelInfo, b: ModelInfo) =>
+                      Number(a.size_mb) - Number(b.size_mb),
+                  )
+                  .map((model: ModelInfo) => (
+                    <ModelCard
+                      key={model.id}
+                      model={model}
+                      status={getModelStatus(model.id)}
+                      disabled={isDownloading}
+                      onSelect={handleDownloadModel}
+                      onDownload={handleDownloadModel}
+                      downloadProgress={getModelDownloadProgress(model.id)}
+                      downloadSpeed={getModelDownloadSpeed(model.id)}
+                    />
+                  ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

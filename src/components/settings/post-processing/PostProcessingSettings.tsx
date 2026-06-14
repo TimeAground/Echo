@@ -26,6 +26,30 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
   const state = usePostProcessProviderState();
 
+  const canFetchModels =
+    !state.isAppleProvider &&
+    (state.isCustomProvider
+      ? state.baseUrl.trim().length > 0
+      : state.apiKey.trim().length > 0);
+
+  const modelNoOptionsMessage = state.isFetchingModels
+    ? t("settings.postProcessing.api.model.loading")
+    : !canFetchModels
+      ? state.isCustomProvider
+        ? t("settings.postProcessing.api.model.noOptionsNeedsBaseUrl")
+        : t("settings.postProcessing.api.model.noOptionsNeedsApiKey")
+      : t("settings.postProcessing.api.model.noOptionsAfterRefresh");
+
+  const handleModelMenuOpen = () => {
+    if (
+      canFetchModels &&
+      state.modelOptions.length === 0 &&
+      !state.isFetchingModels
+    ) {
+      state.handleRefreshModels();
+    }
+  };
+
   return (
     <>
       <SettingContainer
@@ -35,7 +59,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
         layout="horizontal"
         grouped={true}
       >
-        <div className="flex items-center gap-2">
+        <div className="w-full min-w-0">
           <ProviderSelect
             options={state.providerOptions}
             value={state.selectedProviderId}
@@ -60,7 +84,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
               layout="horizontal"
               grouped={true}
             >
-              <div className="flex items-center gap-2">
+              <div className="w-full min-w-0">
                 <BaseUrlField
                   value={state.baseUrl}
                   onBlur={state.handleBaseUrlChange}
@@ -68,7 +92,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                     "settings.postProcessing.api.baseUrl.placeholder",
                   )}
                   disabled={state.isBaseUrlUpdating}
-                  className="min-w-[380px]"
+                  className="w-full"
                 />
               </div>
             </SettingContainer>
@@ -81,7 +105,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
             layout="horizontal"
             grouped={true}
           >
-            <div className="flex items-center gap-2">
+            <div className="w-full min-w-0">
               <ApiKeyField
                 value={state.apiKey}
                 onBlur={state.handleApiKeyChange}
@@ -89,7 +113,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                   "settings.postProcessing.api.apiKey.placeholder",
                 )}
                 disabled={state.isApiKeyUpdating}
-                className="min-w-[320px]"
+                className="w-full"
               />
             </div>
           </SettingContainer>
@@ -108,7 +132,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
           layout="stacked"
           grouped={true}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 items-center gap-2">
             <ModelSelect
               value={state.model}
               options={state.modelOptions}
@@ -124,7 +148,9 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
               onSelect={state.handleModelSelect}
               onCreate={state.handleModelCreate}
               onBlur={() => {}}
-              className="flex-1 min-w-[380px]"
+              onMenuOpen={handleModelMenuOpen}
+              className="flex-1 min-w-0"
+              noOptionsMessage={modelNoOptionsMessage}
             />
             <ResetButton
               onClick={state.handleRefreshModels}
@@ -258,7 +284,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
       grouped={true}
     >
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Dropdown
             selectedValue={selectedPromptId || null}
             options={prompts.map((p) => ({
@@ -274,21 +300,22 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
             disabled={
               isUpdating("post_process_selected_prompt_id") || isCreating
             }
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
           <Button
             onClick={handleStartCreate}
             variant="primary"
             size="md"
             disabled={isCreating}
+            className="shrink-0"
           >
             {t("settings.postProcessing.prompts.createNew")}
           </Button>
         </div>
 
         {!isCreating && hasPrompts && selectedPrompt && (
-          <div className="space-y-3">
-            <div className="space-y-2 flex flex-col">
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
               <label className="text-sm font-semibold">
                 {t("settings.postProcessing.prompts.promptLabel")}
               </label>
@@ -303,7 +330,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2 flex flex-col">
+            <div className="flex flex-col space-y-2">
               <label className="text-sm font-semibold">
                 {t("settings.postProcessing.prompts.promptInstructions")}
               </label>
@@ -314,7 +341,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
                   "settings.postProcessing.prompts.promptInstructionsPlaceholder",
                 )}
               />
-              <p className="text-xs text-mid-gray/70">
+              <p className="text-xs text-white/44">
                 <Trans
                   i18nKey="settings.postProcessing.prompts.promptTip"
                   components={{ code: <code /> }}
@@ -322,7 +349,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-2">
               <Button
                 onClick={handleUpdatePrompt}
                 variant="primary"
@@ -344,8 +371,8 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
         )}
 
         {!isCreating && !selectedPrompt && (
-          <div className="p-3 bg-mid-gray/5 rounded-md border border-mid-gray/20">
-            <p className="text-sm text-mid-gray">
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
+            <p className="text-sm text-white/52">
               {hasPrompts
                 ? t("settings.postProcessing.prompts.selectToEdit")
                 : t("settings.postProcessing.prompts.createFirst")}
@@ -354,9 +381,9 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
         )}
 
         {isCreating && (
-          <div className="space-y-3">
-            <div className="space-y-2 block flex flex-col">
-              <label className="text-sm font-semibold text-text">
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <label className="text-sm font-semibold text-white">
                 {t("settings.postProcessing.prompts.promptLabel")}
               </label>
               <Input
@@ -370,7 +397,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2 flex flex-col">
+            <div className="flex flex-col space-y-2">
               <label className="text-sm font-semibold">
                 {t("settings.postProcessing.prompts.promptInstructions")}
               </label>
@@ -381,7 +408,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
                   "settings.postProcessing.prompts.promptInstructionsPlaceholder",
                 )}
               />
-              <p className="text-xs text-mid-gray/70">
+              <p className="text-xs text-white/44">
                 <Trans
                   i18nKey="settings.postProcessing.prompts.promptTip"
                   components={{ code: <code /> }}
@@ -389,7 +416,7 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-2">
               <Button
                 onClick={handleCreatePrompt}
                 variant="primary"
@@ -427,7 +454,7 @@ export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <SettingsGroup title={t("settings.postProcessing.hotkey.title")}>
         <ShortcutInput
           shortcutId="transcribe_with_post_process"

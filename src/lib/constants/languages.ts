@@ -107,3 +107,25 @@ export const LANGUAGES: Language[] = [
   { value: "jw", label: "Javanese" },
   { value: "su", label: "Sundanese" },
 ];
+
+export const getNativeLanguageLabel = (languageCode: string): string => {
+  const language = LANGUAGES.find((item) => item.value === languageCode);
+
+  if (!language) {
+    return languageCode;
+  }
+
+  if (language.value === "auto") {
+    return language.label;
+  }
+
+  try {
+    return (
+      new Intl.DisplayNames([language.value], { type: "language" }).of(
+        language.value,
+      ) || language.label
+    );
+  } catch {
+    return language.label;
+  }
+};

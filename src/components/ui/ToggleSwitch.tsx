@@ -44,11 +44,11 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
           disabled={disabled || isUpdating}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <div className="relative w-11 h-6 bg-mid-gray/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-logo-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-background-ui peer-disabled:opacity-50"></div>
+        <div className="peer relative h-7 w-12 rounded-full border border-white/10 bg-white/[0.08] transition-all after:absolute after:start-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:border after:border-white/30 after:bg-white after:content-[''] after:transition-all peer-checked:border-[#8a7dff]/26 peer-checked:bg-[linear-gradient(135deg,rgba(123,110,246,0.9),rgba(94,162,255,0.75))] peer-checked:after:translate-x-full peer-disabled:opacity-50 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#8a7dff]/24"></div>
       </label>
       {isUpdating && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-logo-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#8a7dff] border-t-transparent"></div>
         </div>
       )}
     </SettingContainer>

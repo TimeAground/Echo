@@ -1,12 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { ChevronDown, Globe } from "lucide-react";
+import { ChevronDown, Globe, Layers3 } from "lucide-react";
+import { createPortal } from "react-dom";
 import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
-import { LANGUAGES } from "@/lib/constants/languages.ts";
+import {
+  LANGUAGES,
+  getNativeLanguageLabel,
+} from "@/lib/constants/languages.ts";
 import type { ModelInfo } from "@/bindings";
+import { useFloatingMenuPosition } from "@/components/ui/useFloatingMenuPosition";
 
 // check if model supports a language based on its supported_languages list
 const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
@@ -21,6 +26,11 @@ export const ModelsSettings: React.FC = () => {
   const [languageSearch, setLanguageSearch] = useState("");
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const languageSearchInputRef = useRef<HTMLInputElement>(null);
+  const { menuRef, menuStyle } = useFloatingMenuPosition(
+    languageDropdownRef,
+    languageDropdownOpen,
+    { maxHeight: 336 },
+  );
   const {
     models,
     currentModel,
@@ -39,9 +49,11 @@ export const ModelsSettings: React.FC = () => {
   // click outside handler for language dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
         languageDropdownRef.current &&
-        !languageDropdownRef.current.contains(event.target as Node)
+        !languageDropdownRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
       ) {
         setLanguageDropdownOpen(false);
         setLanguageSearch("");
@@ -49,7 +61,7 @@ export const ModelsSettings: React.FC = () => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [menuRef]);
 
   // focus search input when dropdown opens
   useEffect(() => {
@@ -63,7 +75,9 @@ export const ModelsSettings: React.FC = () => {
     return LANGUAGES.filter(
       (lang) =>
         lang.value !== "auto" &&
-        lang.label.toLowerCase().includes(languageSearch.toLowerCase()),
+        `${lang.label} ${getNativeLanguageLabel(lang.value)}`
+          .toLowerCase()
+          .includes(languageSearch.toLowerCase()),
     );
   }, [languageSearch]);
 
@@ -72,8 +86,12 @@ export const ModelsSettings: React.FC = () => {
     if (languageFilter === "all") {
       return t("settings.models.filters.allLanguages");
     }
-    return LANGUAGES.find((lang) => lang.value === languageFilter)?.label || "";
+    return LANGUAGES.find((lang) => lang.value === languageFilter)
+      ? getNativeLanguageLabel(languageFilter)
+      : "";
   }, [languageFilter, t]);
+
+  const isLanguageFilterActive = languageFilter !== "all";
 
   const getModelStatus = (modelId: string): ModelCardStatus => {
     if (modelId in extractingModels) {
@@ -197,124 +215,157 @@ export const ModelsSettings: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-3xl w-full mx-auto">
-        <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-2 border-logo-primary border-t-transparent rounded-full animate-spin" />
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="app-panel flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#7b6ef6] border-t-transparent" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold mb-2">
-          {t("settings.models.title")}
-        </h1>
-        <p className="text-sm text-text/60">
-          {t("settings.models.description")}
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       {filteredModels.length > 0 ? (
         <div className="space-y-6">
-          {/* Downloaded Models Section — header always visible so filter stays accessible */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-text/60">
-                {t("settings.models.yourModels")}
-              </h2>
-              {/* Language filter dropdown */}
-              <div className="relative" ref={languageDropdownRef}>
+          <div className="app-panel px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-white/8 bg-white/[0.04] text-[#cfd6ff]">
+                  <Layers3 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-white/88">
+                    {t("settings.models.yourModels")}
+                  </h2>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/42">
+                    <span>
+                      {t("settings.models.yourModels")} {downloadedModels.length}
+                    </span>
+                    {availableModels.length > 0 && (
+                      <span>
+                        {t("settings.models.availableModels")} {availableModels.length}
+                      </span>
+                    )}
+                    {isLanguageFilterActive && (
+                      <span className="rounded-full border border-[#7b6ef6]/18 bg-[#7b6ef6]/12 px-2 py-0.5 text-[#d8d6ff]">
+                        {selectedLanguageLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div
+                className="relative w-full min-w-0 sm:w-[240px]"
+                ref={languageDropdownRef}
+              >
                 <button
                   type="button"
                   onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                    languageFilter !== "all"
-                      ? "bg-logo-primary/20 text-logo-primary"
-                      : "bg-mid-gray/10 text-text/60 hover:bg-mid-gray/20"
+                  className={`flex w-full min-w-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${
+                    isLanguageFilterActive
+                      ? "border-[#7b6ef6]/30 bg-[#7b6ef6]/16 text-[#d8d6ff]"
+                      : "border-white/10 bg-white/[0.04] text-white/62 hover:border-white/16 hover:bg-white/[0.06]"
                   }`}
                 >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span className="max-w-[120px] truncate">
+                  <Globe className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">
                     {selectedLanguageLabel}
                   </span>
                   <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform ${
+                    className={`h-3.5 w-3.5 shrink-0 transition-transform ${
                       languageDropdownOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
 
-                {languageDropdownOpen && (
-                  <div className="absolute top-full right-0 mt-1 w-56 bg-background border border-mid-gray/80 rounded-lg shadow-lg z-50 overflow-hidden">
-                    <div className="p-2 border-b border-mid-gray/40">
-                      <input
-                        ref={languageSearchInputRef}
-                        type="text"
-                        value={languageSearch}
-                        onChange={(e) => setLanguageSearch(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" &&
-                            filteredLanguages.length > 0
-                          ) {
-                            setLanguageFilter(filteredLanguages[0].value);
-                            setLanguageDropdownOpen(false);
-                            setLanguageSearch("");
-                          } else if (e.key === "Escape") {
-                            setLanguageDropdownOpen(false);
-                            setLanguageSearch("");
-                          }
-                        }}
-                        placeholder={t(
-                          "settings.general.language.searchPlaceholder",
-                        )}
-                        className="w-full px-2 py-1 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded-md focus:outline-none focus:ring-1 focus:ring-logo-primary"
-                      />
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLanguageFilter("all");
-                          setLanguageDropdownOpen(false);
-                          setLanguageSearch("");
-                        }}
-                        className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                          languageFilter === "all"
-                            ? "bg-logo-primary/20 text-logo-primary font-semibold"
-                            : "hover:bg-mid-gray/10"
-                        }`}
-                      >
-                        {t("settings.models.filters.allLanguages")}
-                      </button>
-                      {filteredLanguages.map((lang) => (
+                {languageDropdownOpen &&
+                  menuStyle &&
+                  createPortal(
+                    <div
+                      ref={menuRef}
+                      style={menuStyle}
+                      className="overflow-hidden rounded-[18px] border border-white/10 bg-[#0d111a]/96 shadow-2xl backdrop-blur-xl"
+                    >
+                      <div className="border-b border-white/6 p-2.5">
+                        <input
+                          ref={languageSearchInputRef}
+                          type="text"
+                          value={languageSearch}
+                          onChange={(e) => setLanguageSearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "Enter" &&
+                              filteredLanguages.length > 0
+                            ) {
+                              setLanguageFilter(filteredLanguages[0].value);
+                              setLanguageDropdownOpen(false);
+                              setLanguageSearch("");
+                            } else if (e.key === "Escape") {
+                              setLanguageDropdownOpen(false);
+                              setLanguageSearch("");
+                            }
+                          }}
+                          placeholder={t(
+                            "settings.general.language.searchPlaceholder",
+                          )}
+                          className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-white/34 focus:border-[#7b6ef6]/34 focus:outline-none"
+                        />
+                      </div>
+                      <div className="max-h-60 overflow-y-auto p-1.5">
                         <button
-                          key={lang.value}
                           type="button"
                           onClick={() => {
-                            setLanguageFilter(lang.value);
+                            setLanguageFilter("all");
                             setLanguageDropdownOpen(false);
                             setLanguageSearch("");
                           }}
-                          className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                            languageFilter === lang.value
-                              ? "bg-logo-primary/20 text-logo-primary font-semibold"
-                              : "hover:bg-mid-gray/10"
+                          className={`w-full rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                            languageFilter === "all"
+                              ? "bg-[#7b6ef6]/18 text-[#d8d6ff]"
+                              : "text-white/72 hover:bg-white/[0.05]"
                           }`}
                         >
-                          {lang.label}
+                          {t("settings.models.filters.allLanguages")}
                         </button>
-                      ))}
-                      {filteredLanguages.length === 0 && (
-                        <div className="px-3 py-2 text-sm text-text/50 text-center">
-                          {t("settings.general.language.noResults")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                        {filteredLanguages.map((lang) => (
+                          <button
+                            key={lang.value}
+                            type="button"
+                            onClick={() => {
+                              setLanguageFilter(lang.value);
+                              setLanguageDropdownOpen(false);
+                              setLanguageSearch("");
+                            }}
+                            className={`w-full rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                              languageFilter === lang.value
+                                ? "bg-[#7b6ef6]/18 text-[#d8d6ff]"
+                                : "text-white/72 hover:bg-white/[0.05]"
+                            }`}
+                          >
+                            {getNativeLanguageLabel(lang.value)}
+                          </button>
+                        ))}
+                        {filteredLanguages.length === 0 && (
+                          <div className="px-3 py-3 text-center text-sm text-white/42">
+                            {t("settings.general.language.noResults")}
+                          </div>
+                        )}
+                      </div>
+                    </div>,
+                    document.body,
+                  )}
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#a4b1ff]/70">
+                {t("settings.models.yourModels")}
+              </h2>
+              <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/42">
+                {downloadedModels.length}
+              </span>
             </div>
             {downloadedModels.map((model: ModelInfo) => (
               <ModelCard
@@ -332,12 +383,16 @@ export const ModelsSettings: React.FC = () => {
             ))}
           </div>
 
-          {/* Available Models Section */}
           {availableModels.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-text/60">
-                {t("settings.models.availableModels")}
-              </h2>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <h2 className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#a4b1ff]/70">
+                  {t("settings.models.availableModels")}
+                </h2>
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/42">
+                  {availableModels.length}
+                </span>
+              </div>
               {availableModels.map((model: ModelInfo) => (
                 <ModelCard
                   key={model.id}
@@ -356,8 +411,21 @@ export const ModelsSettings: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="text-center py-8 text-text/50">
-          {t("settings.models.noModelsMatch")}
+        <div className="app-panel px-6 py-12 text-center">
+          <div className="mx-auto max-w-md space-y-3">
+            <p className="text-sm text-white/42">
+              {t("settings.models.noModelsMatch")}
+            </p>
+            {isLanguageFilterActive && (
+              <button
+                type="button"
+                onClick={() => setLanguageFilter("all")}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/78 transition hover:border-white/16 hover:bg-white/[0.08]"
+              >
+                {t("settings.models.filters.allLanguages")}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

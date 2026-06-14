@@ -23,8 +23,10 @@ type BaseProps = {
   isClearable?: boolean;
   onChange: (value: string | null, action: ActionMeta<SelectOption>) => void;
   onBlur?: () => void;
+  onMenuOpen?: () => void;
   className?: string;
   formatCreateLabel?: (input: string) => string;
+  noOptionsMessage?: string;
 };
 
 type CreatableProps = {
@@ -52,13 +54,14 @@ const selectStyles: StylesConfig<SelectOption, false> = {
   control: (base, state) => ({
     ...base,
     minHeight: 40,
-    borderRadius: 6,
+    borderRadius: 12,
     borderColor: state.isFocused ? "var(--color-logo-primary)" : neutralBorder,
     boxShadow: state.isFocused ? "0 0 0 1px var(--color-logo-primary)" : "none",
     backgroundColor: state.isFocused ? focusBackground : baseBackground,
     fontSize: "0.875rem",
     color: "var(--color-text)",
     transition: "all 150ms ease",
+    paddingInline: 2,
     ":hover": {
       borderColor: "var(--color-logo-primary)",
       backgroundColor: hoverBackground,
@@ -95,12 +98,14 @@ const selectStyles: StylesConfig<SelectOption, false> = {
   }),
   menu: (provided) => ({
     ...provided,
-    zIndex: 30,
-    backgroundColor: "var(--color-background)",
+    zIndex: 90,
+    backgroundColor: "rgba(13, 17, 26, 0.96)",
     color: "var(--color-text)",
-    border:
-      "1px solid color-mix(in srgb, var(--color-mid-gray) 30%, transparent)",
-    boxShadow: "0 10px 30px rgba(15, 15, 15, 0.2)",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    borderRadius: 18,
+    overflow: "hidden",
+    boxShadow: "0 18px 40px rgba(0, 0, 0, 0.35)",
+    backdropFilter: "blur(18px)",
   }),
   option: (base, state) => ({
     ...base,
@@ -117,6 +122,10 @@ const selectStyles: StylesConfig<SelectOption, false> = {
     ...base,
     color: "color-mix(in srgb, var(--color-mid-gray) 65%, transparent)",
   }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 90,
+  }),
 };
 
 export const Select: React.FC<SelectProps> = React.memo(
@@ -129,11 +138,16 @@ export const Select: React.FC<SelectProps> = React.memo(
     isClearable = true,
     onChange,
     onBlur,
+    onMenuOpen,
     className = "",
     isCreatable,
     formatCreateLabel,
     onCreateOption,
+    noOptionsMessage,
   }) => {
+    const menuPortalTarget =
+      typeof document !== "undefined" ? document.body : undefined;
+
     const selectValue = React.useMemo(() => {
       if (!value) return null;
       const existing = options.find((option) => option.value === value);
@@ -158,8 +172,12 @@ export const Select: React.FC<SelectProps> = React.memo(
       isDisabled: disabled,
       isLoading,
       onBlur,
+      onMenuOpen,
       isClearable,
       styles: selectStyles,
+      menuPortalTarget,
+      menuPosition: "fixed",
+      noOptionsMessage: () => noOptionsMessage ?? "No options",
     };
 
     if (isCreatable) {

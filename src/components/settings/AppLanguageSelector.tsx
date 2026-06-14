@@ -39,6 +39,7 @@ export const AppLanguageSelector: React.FC<AppLanguageSelectorProps> =
           options={languageOptions}
           selectedValue={currentLanguage}
           onSelect={handleLanguageChange}
+          className="w-[240px] max-w-full"
         />
       </SettingContainer>
     );

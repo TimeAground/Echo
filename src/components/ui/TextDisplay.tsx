@@ -52,10 +52,10 @@ export const TextDisplay: React.FC<TextDisplayProps> = ({
       grouped={grouped}
       layout="stacked"
     >
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <div
-            className={`px-2 min-h-8 flex items-center bg-mid-gray/10 border border-mid-gray/80 rounded-md text-xs ${textClasses} ${!value ? "opacity-60" : ""}`}
+            className={`flex min-h-10 items-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs text-white/72 ${textClasses} ${!value ? "opacity-50" : ""}`}
           >
             {displayValue}
           </div>
@@ -63,7 +63,7 @@ export const TextDisplay: React.FC<TextDisplayProps> = ({
         {copyable && value && (
           <button
             onClick={handleCopy}
-            className="flex items-center justify-center px-2 py-1 w-12 min-h-8 text-xs font-semibold bg-mid-gray/10 hover:bg-logo-primary/10 border border-mid-gray/80 hover:border-logo-primary hover:text-logo-primary rounded-md transition-all duration-150 flex-shrink-0 cursor-pointer"
+            className="flex min-h-10 w-[60px] flex-shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-medium text-white/68 transition-all duration-150 cursor-pointer hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
             title="Copy to clipboard"
           >
             {showCopied ? (

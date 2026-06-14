@@ -31,7 +31,7 @@ export const BaseUrlField: React.FC<BaseUrlFieldProps> = React.memo(
         placeholder={placeholder}
         variant="compact"
         disabled={disabled}
-        className={`flex-1 min-w-[360px] ${className}`}
+        className={`w-full min-w-0 sm:max-w-[420px] ${className}`}
         title={disabledMessage}
       />
     );

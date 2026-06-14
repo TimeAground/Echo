@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { ModelOption } from "./types";
 import { Select } from "../../ui/Select";
 
@@ -11,7 +12,9 @@ type ModelSelectProps = {
   onSelect: (value: string) => void;
   onCreate: (value: string) => void;
   onBlur: () => void;
+  onMenuOpen?: () => void;
   className?: string;
+  noOptionsMessage?: string;
 };
 
 export const ModelSelect: React.FC<ModelSelectProps> = React.memo(
@@ -24,8 +27,12 @@ export const ModelSelect: React.FC<ModelSelectProps> = React.memo(
     onSelect,
     onCreate,
     onBlur,
-    className = "flex-1 min-w-[360px]",
+    onMenuOpen,
+    className = "w-full min-w-0 sm:max-w-[420px]",
+    noOptionsMessage,
   }) => {
+    const { t } = useTranslation();
+
     const handleCreate = (inputValue: string) => {
       const trimmed = inputValue.trim();
       if (!trimmed) return;
@@ -42,11 +49,15 @@ export const ModelSelect: React.FC<ModelSelectProps> = React.memo(
         onChange={(selected) => onSelect(selected ?? "")}
         onCreateOption={handleCreate}
         onBlur={onBlur}
+        onMenuOpen={onMenuOpen}
         placeholder={placeholder}
         disabled={disabled}
         isLoading={isLoading}
         isCreatable
-        formatCreateLabel={(input) => `Use "${input}"`}
+        formatCreateLabel={(input) =>
+          t("settings.postProcessing.api.model.useTypedModel", { model: input })
+        }
+        noOptionsMessage={noOptionsMessage}
       />
     );
   },

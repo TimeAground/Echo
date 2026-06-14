@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
+import { useFloatingMenuPosition } from "./useFloatingMenuPosition";
 
 export interface DropdownOption {
   value: string;
@@ -29,19 +31,22 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { menuRef, menuStyle } = useFloatingMenuPosition(dropdownRef, isOpen);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
       ) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [menuRef]);
 
   const selectedOption = options.find(
     (option) => option.value === selectedValue,
@@ -59,20 +64,22 @@ export const Dropdown: React.FC<DropdownProps> = ({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative min-w-0 ${className}`} ref={dropdownRef}>
       <button
         type="button"
-        className={`px-2 py-1 text-sm font-semibold bg-mid-gray/10 border border-mid-gray/80 rounded-md min-w-[200px] text-start flex items-center justify-between transition-all duration-150 ${
+        className={`flex w-full min-w-0 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-start text-sm font-medium text-white transition-all duration-150 ${
           disabled
             ? "opacity-50 cursor-not-allowed"
-            : "hover:bg-logo-primary/10 cursor-pointer hover:border-logo-primary"
+            : "cursor-pointer hover:border-white/16 hover:bg-white/[0.06]"
         }`}
         onClick={handleToggle}
         disabled={disabled}
       >
-        <span className="truncate">{selectedOption?.label || placeholder}</span>
+        <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+          {selectedOption?.label || placeholder}
+        </span>
         <svg
-          className={`w-4 h-4 ms-2 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
+          className={`ms-2 h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -85,31 +92,39 @@ export const Dropdown: React.FC<DropdownProps> = ({
           />
         </svg>
       </button>
-      {isOpen && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-mid-gray/80 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-          {options.length === 0 ? (
-            <div className="px-2 py-1 text-sm text-mid-gray">
-              {t("common.noOptionsFound")}
-            </div>
-          ) : (
-            options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`w-full px-2 py-1 text-sm text-start hover:bg-logo-primary/10 transition-colors duration-150 ${
-                  selectedValue === option.value
-                    ? "bg-logo-primary/20 font-semibold"
-                    : ""
-                } ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                onClick={() => handleSelect(option.value)}
-                disabled={option.disabled}
-              >
-                <span className="truncate">{option.label}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
+      {isOpen &&
+        !disabled &&
+        menuStyle &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={menuStyle}
+            className="overflow-y-auto rounded-[18px] border border-white/10 bg-[#0d111a]/96 shadow-2xl backdrop-blur-xl"
+          >
+            {options.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-white/42">
+                {t("common.noOptionsFound")}
+              </div>
+            ) : (
+              options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`w-full px-3 py-2 text-start text-sm transition-colors duration-150 ${
+                    selectedValue === option.value
+                      ? "bg-[#7b6ef6]/18 font-semibold text-[#d8d6ff]"
+                      : ""
+                  } ${option.disabled ? "cursor-not-allowed opacity-50" : "text-white/78 hover:bg-white/[0.05]"}`}
+                  onClick={() => handleSelect(option.value)}
+                  disabled={option.disabled}
+                >
+                  <span className="block min-w-0 truncate">{option.label}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

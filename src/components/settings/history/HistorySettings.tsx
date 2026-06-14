@@ -25,10 +25,10 @@ const IconButton: React.FC<{
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`p-1.5 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-text/20 ${
+    className={`flex items-center justify-center rounded-xl border p-2 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
       active
-        ? "text-logo-primary hover:text-logo-primary/80"
-        : "text-text/50 hover:text-logo-primary"
+        ? "border-[#8a7dff]/24 bg-[#8a7dff]/16 text-[#ddd9ff] hover:bg-[#8a7dff]/22"
+        : "border-white/8 bg-white/[0.03] text-white/52 hover:border-white/14 hover:bg-white/[0.07] hover:text-white/86"
     }`}
     title={title}
   >
@@ -238,20 +238,20 @@ export const HistorySettings: React.FC = () => {
 
   if (loading) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <div className="px-5 py-6 text-center text-white/54">
         {t("settings.history.loading")}
       </div>
     );
   } else if (entries.length === 0) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <div className="px-5 py-6 text-center text-white/54">
         {t("settings.history.empty")}
       </div>
     );
   } else {
     content = (
       <>
-        <div className="divide-y divide-mid-gray/20">
+        <div className="divide-y divide-white/6">
           {entries.map((entry) => (
             <HistoryEntryComponent
               key={entry.id}
@@ -271,20 +271,23 @@ export const HistorySettings: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
-      <div className="space-y-2">
-        <div className="px-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-medium text-mid-gray uppercase tracking-wide">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#a4b1ff]/70">
               {t("settings.history.title")}
             </h2>
+            <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/42">
+              {entries.length}
+            </span>
           </div>
           <OpenRecordingsButton
             onClick={openRecordingsFolder}
             label={t("settings.history.openFolder")}
           />
         </div>
-        <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
+        <div className="app-panel overflow-hidden rounded-[22px]">
           {content}
         </div>
       </div>
@@ -354,10 +357,15 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const formattedDate = formatDateTime(String(entry.timestamp), i18n.language);
 
   return (
-    <div className="px-4 py-2 pb-5 flex flex-col gap-3">
-      <div className="flex justify-between items-center">
-        <p className="text-sm font-medium">{formattedDate}</p>
-        <div className="flex items-center">
+    <div className="flex flex-col gap-3 px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white/84">{formattedDate}</p>
+          <p className="mt-1 truncate text-[11px] tracking-[0.08em] text-white/32">
+            {entry.file_name}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 rounded-[16px] border border-white/8 bg-white/[0.025] p-1">
           <IconButton
             onClick={handleCopyText}
             disabled={!hasTranscription || retrying}
@@ -410,36 +418,40 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
         </div>
       </div>
 
-      <p
-        className={`italic text-sm pb-2 ${
-          retrying
-            ? ""
+      <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3">
+        <p
+          className={`text-sm leading-7 ${
+            retrying
+              ? ""
+              : hasTranscription
+                ? "cursor-text select-text whitespace-pre-wrap break-words text-white/74"
+                : "italic text-white/34"
+          }`}
+          style={
+            retrying
+              ? { animation: "transcribe-pulse 3s ease-in-out infinite" }
+              : undefined
+          }
+        >
+          {retrying && (
+            <style>{`
+              @keyframes transcribe-pulse {
+                0%, 100% { color: color-mix(in srgb, var(--color-text) 40%, transparent); }
+                50% { color: color-mix(in srgb, var(--color-text) 90%, transparent); }
+              }
+            `}</style>
+          )}
+          {retrying
+            ? t("settings.history.transcribing")
             : hasTranscription
-              ? "text-text/90 select-text cursor-text whitespace-pre-wrap break-words"
-              : "text-text/40"
-        }`}
-        style={
-          retrying
-            ? { animation: "transcribe-pulse 3s ease-in-out infinite" }
-            : undefined
-        }
-      >
-        {retrying && (
-          <style>{`
-            @keyframes transcribe-pulse {
-              0%, 100% { color: color-mix(in srgb, var(--color-text) 40%, transparent); }
-              50% { color: color-mix(in srgb, var(--color-text) 90%, transparent); }
-            }
-          `}</style>
-        )}
-        {retrying
-          ? t("settings.history.transcribing")
-          : hasTranscription
-            ? entry.transcription_text
-            : t("settings.history.transcriptionFailed")}
-      </p>
+              ? entry.transcription_text
+              : t("settings.history.transcriptionFailed")}
+        </p>
+      </div>
 
-      <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      <div className="rounded-[16px] border border-white/8 bg-white/[0.02] px-3 py-2">
+        <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      </div>
     </div>
   );
 };

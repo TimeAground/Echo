@@ -100,7 +100,7 @@
     },
     "permissions": {
       "title": "需要权限",
-      "description": "Handy 需要一些权限才能正常工作。",
+      "description": "Echo 需要一些权限才能正常工作。",
       "microphone": {
         "title": "麦克风访问",
         "description": "需要听取您的语音进行转录。"
@@ -176,7 +176,7 @@
     "general": {
       "title": "通用",
       "shortcut": {
-        "title": "Handy 快捷键",
+        "title": "Echo 快捷键",
         "description": "配置启动语音转文字录制的键盘快捷键",
         "loading": "加载快捷键中...",
         "none": "未配置快捷键",
@@ -280,11 +280,11 @@
       },
       "autostart": {
         "label": "开机启动",
-        "description": "登录计算机时自动启动 Handy。"
+        "description": "登录计算机时自动启动 Echo。"
       },
       "showTrayIcon": {
         "label": "显示托盘图标",
-        "description": "在系统托盘中显示 Handy 图标。"
+        "description": "在系统托盘中显示 Echo 图标。"
       },
       "overlay": {
         "title": "悬浮窗位置",
@@ -397,23 +397,28 @@
           "placeholderApple": "Apple Intelligence",
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
-          "refreshModels": "刷新模型"
+          "refreshModels": "刷新模型",
+          "loading": "正在获取模型列表...",
+          "noOptionsNeedsApiKey": "请先填写 API 密钥，再展开或点击右侧刷新获取模型列表",
+          "noOptionsNeedsBaseUrl": "请先填写 Base URL，再展开或点击右侧刷新获取模型列表",
+          "noOptionsAfterRefresh": "暂无可选模型，可点击右侧刷新，或直接输入模型名称",
+          "useTypedModel": "使用“{{model}}”"
         }
       },
       "prompts": {
-        "title": "提示词",
+        "title": "后处理模板",
         "selectedPrompt": {
-          "title": "已选提示词",
-          "description": "选择用于优化转录的模板或创建新模板。在提示词文本中使用 ${output} 来引用捕获的转录。"
+          "title": "已选模板",
+          "description": "选择一个在识别完成后用于清洗、润色或改写转录文本的后处理模板。在提示词文本中使用 ${output} 来引用识别结果。"
         },
         "noPrompts": "没有可用的提示词",
         "selectPrompt": "选择提示词",
         "createNew": "创建新提示词",
         "promptLabel": "提示词名称",
         "promptLabelPlaceholder": "输入提示词名称",
-        "promptInstructions": "提示词指令",
-        "promptInstructionsPlaceholder": "编写转录后要执行的指令。示例：改进以下文本的语法和清晰度: ${output}",
-        "promptTip": "提示：使用 <code>${output}</code> 将转录文本插入到您的提示词中。",
+        "promptInstructions": "后处理指令",
+        "promptInstructionsPlaceholder": "编写识别完成后要执行的文本处理指令。示例：清理以下转录文本并保持原意不变：${output}",
+        "promptTip": "提示：这里的提示词作用于识别完成后的文本后处理，不会提升语音识别本身。使用 <code>${output}</code> 可将识别结果插入到模板中。",
         "updatePrompt": "更新提示词",
         "deletePrompt": "删除提示词",
         "createPrompt": "创建提示词",
@@ -449,7 +454,7 @@
       },
       "updateChecks": {
         "label": "检查更新",
-        "description": "自动检查 Handy 的新版本"
+        "description": "自动检查 Echo 的新版本"
       },
       "soundTheme": {
         "label": "声音主题",
@@ -517,11 +522,11 @@
       "title": "关于",
       "version": {
         "title": "版本",
-        "description": "Handy 的当前版本"
+        "description": "Echo 的当前版本"
       },
       "appDataDirectory": {
         "title": "应用数据目录",
-        "description": "Handy 存储数据的位置"
+        "description": "Echo 存储数据的位置"
       },
       "sourceCode": {
         "title": "源代码",
@@ -530,15 +535,15 @@
       },
       "supportDevelopment": {
         "title": "支持开发",
-        "description": "帮助我们继续开发 Handy",
+        "description": "帮助我们继续开发 Echo",
         "button": "捐赠"
       },
       "acknowledgments": {
         "title": "致谢",
         "whisper": {
-          "title": "Whisper.cpp",
-          "description": "OpenAI Whisper 自动语音识别模型的高性能推理",
-          "details": "Handy 使用 Whisper.cpp 进行快速的本地语音转文字处理。感谢 Georgi Gerganov 和贡献者们的出色工作。"
+          "title": "语音识别引擎",
+          "description": "Echo 当前主要面向中文场景优先提供 SenseVoice，也保留 Whisper.cpp 等本地识别引擎支持",
+          "details": "Echo 当前的本地识别能力以 SenseVoice 为主，同时兼容 Whisper.cpp 等语音识别引擎，用于覆盖不同语言与模型路线。感谢相关开源项目与贡献者提供的优秀基础能力。"
         }
       }
     }
@@ -584,7 +589,7 @@
   },
   "accessibility": {
     "permissionsRequired": "需要辅助功能权限",
-    "permissionsDescription": "Handy 需要辅助功能权限才能输入转录的文字。",
+    "permissionsDescription": "Echo 需要辅助功能权限才能输入转录的文字。",
     "openSettings": "打开系统设置",
     "dismiss": "关闭"
   },
@@ -607,7 +612,7 @@
   },
   "appLanguage": {
     "title": "应用语言",
-    "description": "更改 Handy 界面的语言"
+    "description": "更改 Echo 界面的语言"
   },
   "overlay": {
     "transcribing": "正在转录...",

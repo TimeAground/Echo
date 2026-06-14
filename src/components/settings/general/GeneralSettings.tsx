@@ -17,8 +17,9 @@ export const GeneralSettings: React.FC = () => {
   const { audioFeedbackEnabled, getSetting } = useSettings();
   const pushToTalk = getSetting("push_to_talk");
   const isLinux = type() === "linux";
+
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <SettingsGroup title={t("settings.general.title")}>
         <ShortcutInput shortcutId="transcribe" grouped={true} />
         <ShortcutInput shortcutId="transcribe_with_post_process" grouped={true} />

@@ -1,11 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  MicrophoneIcon,
-  TranscriptionIcon,
-  CancelIcon,
-} from "../components/icons";
+import { Loader2, Mic, Sparkles, X } from "lucide-react";
 import "./RecordingOverlay.css";
 import { commands } from "@/bindings";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
@@ -62,12 +58,21 @@ const RecordingOverlay: React.FC = () => {
     setupEventListeners();
   }, []);
 
+  const overlayLabel =
+    state === "recording"
+      ? t("overlay.recording")
+      : state === "transcribing"
+        ? t("overlay.transcribing")
+        : t("overlay.processing");
+
   const getIcon = () => {
     if (state === "recording") {
-      return <MicrophoneIcon />;
-    } else {
-      return <TranscriptionIcon />;
+      return <Mic className="h-4 w-4" />;
     }
+    if (state === "transcribing") {
+      return <Loader2 className="h-4 w-4 animate-spin" />;
+    }
+    return <Sparkles className="h-4 w-4" />;
   };
 
   return (
@@ -75,9 +80,12 @@ const RecordingOverlay: React.FC = () => {
       dir={direction}
       className={`recording-overlay ${isVisible ? "fade-in" : ""}`}
     >
-      <div className="overlay-left">{getIcon()}</div>
+      <div className="overlay-left">
+        <div className={`overlay-icon ${state}`}>{getIcon()}</div>
+      </div>
 
       <div className="overlay-middle">
+        <div className="overlay-status">{overlayLabel}</div>
         {state === "recording" && (
           <div className="bars-container">
             {levels.map((v, i) => (
@@ -93,24 +101,21 @@ const RecordingOverlay: React.FC = () => {
             ))}
           </div>
         )}
-        {state === "transcribing" && (
-          <div className="transcribing-text">{t("overlay.transcribing")}</div>
-        )}
-        {state === "processing" && (
-          <div className="transcribing-text">{t("overlay.processing")}</div>
-        )}
+        {state !== "recording" && <div className="transcribing-text">{overlayLabel}</div>}
       </div>
 
       <div className="overlay-right">
         {state === "recording" && (
-          <div
+          <button
             className="cancel-button"
             onClick={() => {
               commands.cancelOperation();
             }}
+            type="button"
+            aria-label={t("common.cancel")}
           >
-            <CancelIcon />
-          </div>
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
     </div>

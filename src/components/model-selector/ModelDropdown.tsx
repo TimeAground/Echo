@@ -25,7 +25,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
   };
 
   return (
-    <div className="absolute bottom-full start-0 mb-2 w-64 max-h-[60vh] overflow-y-auto bg-background border border-mid-gray/20 rounded-lg shadow-lg py-2 z-50">
+    <div className="absolute bottom-full start-0 z-50 mb-2 max-h-[60vh] w-72 overflow-y-auto rounded-[20px] border border-white/10 bg-[#0d111a]/96 py-2 shadow-2xl backdrop-blur-xl">
       {downloadedModels.length > 0 ? (
         <div>
           {downloadedModels.map((model) => (
@@ -40,28 +40,28 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
               }}
               tabIndex={0}
               role="button"
-              className={`w-full px-3 py-2 text-start hover:bg-mid-gray/10 transition-colors cursor-pointer focus:outline-none ${
+              className={`w-full px-3 py-2 text-start transition-colors cursor-pointer focus:outline-none ${
                 currentModelId === model.id
-                  ? "bg-logo-primary/10 text-logo-primary"
+                  ? "bg-[#7b6ef6]/14 text-[#ddd9ff]"
                   : ""
-              }`}
+              } ${currentModelId === model.id ? "" : "hover:bg-white/[0.05]"}`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-text/80">
+                  <div className="text-sm text-white/82">
                     {getTranslatedModelName(model, t)}
                     {model.is_custom && (
-                      <span className="ms-1.5 text-[10px] font-medium text-text/40 uppercase">
+                      <span className="ms-1.5 text-[10px] font-medium uppercase text-white/34">
                         {t("modelSelector.custom")}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-text/40 italic pe-4">
+                  <div className="pe-4 text-xs italic text-white/38">
                     {getTranslatedModelDescription(model, t)}
                   </div>
                 </div>
                 {currentModelId === model.id && (
-                  <div className="text-xs text-logo-primary">
+                  <div className="text-xs text-[#ddd9ff]">
                     {t("modelSelector.active")}
                   </div>
                 )}
@@ -70,7 +70,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
           ))}
         </div>
       ) : (
-        <div className="px-3 py-2 text-sm text-text/60">
+        <div className="px-3 py-2 text-sm text-white/42">
           {t("modelSelector.noModelsAvailable")}
         </div>
       )}

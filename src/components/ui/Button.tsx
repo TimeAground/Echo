@@ -19,27 +19,27 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    "font-medium rounded-lg border focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+    "cursor-pointer rounded-xl border font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50";
 
   const variantClasses = {
     primary:
-      "text-white bg-background-ui border-background-ui hover:bg-background-ui/80 hover:border-background-ui/80 focus:ring-1 focus:ring-background-ui",
+      "border-[#7b6ef6]/30 bg-[linear-gradient(135deg,rgba(123,110,246,0.92),rgba(94,162,255,0.72))] text-white shadow-[0_12px_28px_rgba(123,110,246,0.2)] hover:brightness-110 focus:ring-[#7b6ef6]/30",
     "primary-soft":
-      "text-text bg-logo-primary/20 border-transparent hover:bg-logo-primary/30 focus:ring-1 focus:ring-logo-primary",
+      "border-[#7b6ef6]/16 bg-[#7b6ef6]/14 text-[#d7d9ff] hover:border-[#7b6ef6]/24 hover:bg-[#7b6ef6]/20 focus:ring-[#7b6ef6]/24",
     secondary:
-      "bg-mid-gray/10 border-mid-gray/20 hover:bg-background-ui/30 hover:border-logo-primary focus:outline-none",
+      "border-white/10 bg-white/[0.04] text-white/88 hover:border-white/16 hover:bg-white/[0.08] focus:ring-white/12",
     danger:
-      "text-white bg-red-600 border-mid-gray/20 hover:bg-red-700 hover:border-red-700 focus:ring-1 focus:ring-red-500",
+      "border-red-400/20 bg-red-500/85 text-white hover:bg-red-500 focus:ring-red-400/28",
     "danger-ghost":
-      "text-red-400 border-transparent hover:text-red-300 hover:bg-red-500/10 focus:bg-red-500/20",
+      "border-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200 focus:bg-red-500/20 focus:ring-red-400/16",
     ghost:
-      "text-current border-transparent hover:bg-mid-gray/10 hover:border-logo-primary focus:bg-mid-gray/20",
+      "border-transparent text-current hover:border-white/10 hover:bg-white/[0.06] focus:bg-white/[0.08] focus:ring-white/10",
   };
 
   const sizeClasses = {
-    sm: "px-2 py-1 text-xs",
-    md: "px-4 py-[5px] text-sm",
-    lg: "px-4 py-2 text-base",
+    sm: "px-2.5 py-1 text-xs",
+    md: "px-4 py-2 text-sm",
+    lg: "px-5 py-2.5 text-base",
   };
 
   return (

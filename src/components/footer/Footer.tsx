@@ -22,18 +22,18 @@ const Footer: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full border-t border-mid-gray/20 pt-3">
-      <div className="flex justify-between items-center text-xs px-4 pb-3 text-text/60">
-        <div className="flex items-center gap-4">
+    <div className="relative z-1 w-full border-t border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)] px-4 pb-4 pt-3">
+      <div className="flex items-center justify-between gap-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-white/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="flex min-w-0 items-center gap-4">
           <ModelSelector />
         </div>
 
         {/* Update Status */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           <UpdateChecker />
-          <span>•</span>
+          <span className="text-white/28">•</span>
           {/* eslint-disable-next-line i18next/no-literal-string */}
-          <span>v{version}</span>
+          <span className="text-white/54">v{version}</span>
         </div>
       </div>
     </div>
