@@ -21,6 +21,14 @@ import {
 import Badge from "../ui/Badge";
 import { Button } from "../ui/Button";
 
+type ScenarioBadgeTone = "primary" | "success" | "secondary";
+
+interface ScenarioBadge {
+  key: string;
+  label: string;
+  tone: ScenarioBadgeTone;
+}
+
 // Get display text for model's language support
 const getLanguageDisplayText = (
   supportedLanguages: string[],
@@ -35,6 +43,156 @@ const getLanguageDisplayText = (
     return t("modelSelector.capabilities.languageOnly", { language: langName });
   }
   return t("modelSelector.capabilities.multiLanguage");
+};
+
+const hasAnyLanguage = (supportedLanguages: string[], targets: string[]) =>
+  supportedLanguages.some((language) => targets.includes(language));
+
+const getScenarioBadges = (
+  model: ModelInfo,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): ScenarioBadge[] => {
+  const badges: ScenarioBadge[] = [];
+  const supportedLanguages = model.supported_languages;
+  const modelId = model.id.toLowerCase();
+  const isEnglishOnly =
+    supportedLanguages.length === 1 && supportedLanguages[0] === "en";
+  const isChineseFirst =
+    modelId.includes("sense-voice") || modelId.includes("breeze");
+  const isTaiwanMandarin = modelId.includes("breeze");
+  const isRussianFocused = modelId.includes("gigaam");
+  const isMultilingual = supportedLanguages.length >= 2;
+  const supportsCodeSwitch =
+    modelId.includes("sense-voice") || modelId.includes("breeze");
+  const isLowLatency =
+    model.speed_score >= 0.78 ||
+    /sense-voice|moonshine|flash|turbo/.test(modelId);
+  const isHighAccuracy =
+    model.accuracy_score >= 0.78 || /large|cohere|medium/.test(modelId);
+  const isBalanced =
+    model.speed_score >= 0.6 &&
+    model.accuracy_score >= 0.6 &&
+    !isLowLatency &&
+    !isHighAccuracy;
+
+  if (isTaiwanMandarin) {
+    badges.push({
+      key: "taiwanMandarin",
+      label: t("modelSelector.scenarios.tags.taiwanMandarin"),
+      tone: "primary",
+    });
+  } else if (isRussianFocused) {
+    badges.push({
+      key: "russianSpeech",
+      label: t("modelSelector.scenarios.tags.russianSpeech"),
+      tone: "primary",
+    });
+  } else if (isChineseFirst) {
+    badges.push({
+      key: "chineseFirst",
+      label: t("modelSelector.scenarios.tags.chineseFirst"),
+      tone: "primary",
+    });
+  } else if (isEnglishOnly) {
+    badges.push({
+      key: "englishOnly",
+      label: t("modelSelector.scenarios.tags.englishOnly"),
+      tone: "secondary",
+    });
+  } else if (isMultilingual) {
+    badges.push({
+      key: "multilingual",
+      label: t("modelSelector.scenarios.tags.multilingual"),
+      tone: "secondary",
+    });
+  }
+
+  if (supportsCodeSwitch) {
+    badges.push({
+      key: "codeSwitch",
+      label: t("modelSelector.scenarios.tags.codeSwitch"),
+      tone: "secondary",
+    });
+  }
+
+  if (isLowLatency) {
+    badges.push({
+      key: "lowLatency",
+      label: t("modelSelector.scenarios.tags.lowLatency"),
+      tone: "success",
+    });
+  } else if (isHighAccuracy) {
+    badges.push({
+      key: "highAccuracy",
+      label: t("modelSelector.scenarios.tags.highAccuracy"),
+      tone: "secondary",
+    });
+  } else if (isBalanced) {
+    badges.push({
+      key: "balanced",
+      label: t("modelSelector.scenarios.tags.balanced"),
+      tone: "secondary",
+    });
+  }
+
+  if (model.supports_translation) {
+    badges.push({
+      key: "translation",
+      label: t("modelSelector.scenarios.tags.translation"),
+      tone: "secondary",
+    });
+  }
+
+  badges.push({
+    key: "offline",
+    label: t("modelSelector.scenarios.tags.offline"),
+    tone: "secondary",
+  });
+
+  return badges.slice(0, 4);
+};
+
+const getScenarioSummary = (
+  model: ModelInfo,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) => {
+  const supportedLanguages = model.supported_languages;
+  const modelId = model.id.toLowerCase();
+  const phrases: string[] = [];
+
+  if (modelId.includes("breeze")) {
+    phrases.push(t("modelSelector.scenarios.phrases.taiwanMandarin"));
+  } else if (modelId.includes("gigaam")) {
+    phrases.push(t("modelSelector.scenarios.phrases.russianSpeech"));
+  } else if (modelId.includes("sense-voice")) {
+    phrases.push(t("modelSelector.scenarios.phrases.chineseFirst"));
+  } else if (supportedLanguages.length === 1 && supportedLanguages[0] === "en") {
+    phrases.push(t("modelSelector.scenarios.phrases.englishOnly"));
+  } else if (supportedLanguages.length >= 2) {
+    phrases.push(t("modelSelector.scenarios.phrases.multilingual"));
+  }
+
+  if (modelId.includes("sense-voice") || modelId.includes("breeze")) {
+    phrases.push(t("modelSelector.scenarios.phrases.codeSwitch"));
+  }
+
+  if (model.speed_score >= 0.78 || /sense-voice|moonshine|flash|turbo/.test(modelId)) {
+    phrases.push(t("modelSelector.scenarios.phrases.lowLatency"));
+  } else if (model.accuracy_score >= 0.78 || /large|cohere|medium/.test(modelId)) {
+    phrases.push(t("modelSelector.scenarios.phrases.highAccuracy"));
+  } else if (model.speed_score >= 0.6 && model.accuracy_score >= 0.6) {
+    phrases.push(t("modelSelector.scenarios.phrases.balanced"));
+  }
+
+  if (model.supports_translation) {
+    phrases.push(t("modelSelector.scenarios.phrases.translation"));
+  }
+
+  phrases.push(t("modelSelector.scenarios.phrases.offline"));
+
+  return t("modelSelector.scenarios.summary", {
+    items: phrases.slice(0, 3).join(" / "),
+  });
 };
 
 export type ModelCardStatus =
@@ -83,6 +241,8 @@ const ModelCard: React.FC<ModelCardProps> = ({
   // Get translated model name and description
   const displayName = getTranslatedModelName(model, t);
   const displayDescription = getTranslatedModelDescription(model, t);
+  const scenarioBadges = getScenarioBadges(model, t);
+  const scenarioSummary = getScenarioSummary(model, t);
 
   const baseClasses =
     "group relative flex flex-col gap-2.5 overflow-hidden rounded-[24px] border px-5 py-4 text-left transition-all duration-200";
@@ -167,6 +327,9 @@ const ModelCard: React.FC<ModelCardProps> = ({
           <p className="mt-1.5 text-[13px] leading-7 text-white/60">
             {displayDescription}
           </p>
+          <p className="mt-2 text-[12px] leading-6 text-[#aab7ff]/68">
+            {scenarioSummary}
+          </p>
         </div>
         {(model.accuracy_score > 0 || model.speed_score > 0) && (
           <div className="hidden shrink-0 sm:flex sm:items-center">
@@ -202,6 +365,11 @@ const ModelCard: React.FC<ModelCardProps> = ({
 
       {/* Bottom row: tags + action buttons (full width) */}
       <div className="relative flex min-h-6 w-full flex-wrap items-center gap-2.5">
+        {scenarioBadges.map((badge) => (
+          <Badge key={badge.key} variant={badge.tone}>
+            {badge.label}
+          </Badge>
+        ))}
         {model.supported_languages.length > 0 && (
           <div
             className="flex items-center gap-1 text-[11px] text-white/48"

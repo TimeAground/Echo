@@ -399,8 +399,10 @@ pub struct AppSettings {
     pub post_process_models: HashMap<String, String>,
     #[serde(default = "default_post_process_prompts")]
     pub post_process_prompts: Vec<LLMPrompt>,
-    #[serde(default)]
+    #[serde(default = "default_post_process_selected_prompt_id")]
     pub post_process_selected_prompt_id: Option<String>,
+    #[serde(default = "default_post_process_include_selected_text")]
+    pub post_process_include_selected_text: bool,
     #[serde(default)]
     pub mute_while_recording: bool,
     #[serde(default)]
@@ -508,9 +510,7 @@ fn default_post_process_enabled() -> bool {
 }
 
 fn default_app_language() -> String {
-    tauri_plugin_os::locale()
-        .map(|l| l.replace('_', "-"))
-        .unwrap_or_else(|| "en".to_string())
+    "zh-CN".to_string()
 }
 
 fn default_show_tray_icon() -> bool {
@@ -518,11 +518,51 @@ fn default_show_tray_icon() -> bool {
 }
 
 fn default_post_process_provider_id() -> String {
-    "openai".to_string()
+    "deepseek".to_string()
 }
 
 fn default_post_process_providers() -> Vec<PostProcessProvider> {
-    let mut providers = vec![
+    vec![
+        PostProcessProvider {
+            id: "deepseek".to_string(),
+            label: "DeepSeek".to_string(),
+            base_url: "https://api.deepseek.com/v1".to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: true,
+        },
+        PostProcessProvider {
+            id: "bailian".to_string(),
+            label: "阿里百炼".to_string(),
+            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: true,
+        },
+        PostProcessProvider {
+            id: "zhipu".to_string(),
+            label: "智谱 GLM".to_string(),
+            base_url: "https://open.bigmodel.cn/api/paas/v4".to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: true,
+        },
+        PostProcessProvider {
+            id: "kimi".to_string(),
+            label: "Kimi".to_string(),
+            base_url: "https://api.moonshot.ai/v1".to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: true,
+        },
+        PostProcessProvider {
+            id: "siliconflow".to_string(),
+            label: "硅基流动".to_string(),
+            base_url: "https://api.siliconflow.cn/v1".to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: true,
+        },
         PostProcessProvider {
             id: "openai".to_string(),
             label: "OpenAI".to_string(),
@@ -532,84 +572,14 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             supports_structured_output: true,
         },
         PostProcessProvider {
-            id: "zai".to_string(),
-            label: "Z.AI".to_string(),
-            base_url: "https://api.z.ai/api/paas/v4".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
-            supports_structured_output: true,
-        },
-        PostProcessProvider {
-            id: "openrouter".to_string(),
-            label: "OpenRouter".to_string(),
-            base_url: "https://openrouter.ai/api/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
-            supports_structured_output: true,
-        },
-        PostProcessProvider {
-            id: "anthropic".to_string(),
-            label: "Anthropic".to_string(),
-            base_url: "https://api.anthropic.com/v1".to_string(),
-            allow_base_url_edit: false,
+            id: "custom".to_string(),
+            label: "Custom".to_string(),
+            base_url: "http://localhost:11434/v1".to_string(),
+            allow_base_url_edit: true,
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: false,
         },
-        PostProcessProvider {
-            id: "groq".to_string(),
-            label: "Groq".to_string(),
-            base_url: "https://api.groq.com/openai/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
-            supports_structured_output: false,
-        },
-        PostProcessProvider {
-            id: "cerebras".to_string(),
-            label: "Cerebras".to_string(),
-            base_url: "https://api.cerebras.ai/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
-            supports_structured_output: true,
-        },
-    ];
-
-    // Note: We always include Apple Intelligence on macOS ARM64 without checking availability
-    // at startup. The availability check is deferred to when the user actually tries to use it
-    // (in actions.rs). This prevents crashes on macOS 26.x beta where accessing
-    // SystemLanguageModel.default during early app initialization causes SIGABRT.
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    {
-        providers.push(PostProcessProvider {
-            id: APPLE_INTELLIGENCE_PROVIDER_ID.to_string(),
-            label: "Apple Intelligence".to_string(),
-            base_url: "apple-intelligence://local".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: None,
-            supports_structured_output: true,
-        });
-    }
-
-    // AWS Bedrock via Mantle (OpenAI-compatible endpoint)
-    providers.push(PostProcessProvider {
-        id: "bedrock_mantle".to_string(),
-        label: "AWS Bedrock (Mantle)".to_string(),
-        base_url: "https://bedrock-mantle.us-east-1.api.aws/v1".to_string(),
-        allow_base_url_edit: false,
-        models_endpoint: Some("/models".to_string()),
-        supports_structured_output: true,
-    });
-
-    // Custom provider always comes last
-    providers.push(PostProcessProvider {
-        id: "custom".to_string(),
-        label: "Custom".to_string(),
-        base_url: "http://localhost:11434/v1".to_string(),
-        allow_base_url_edit: true,
-        models_endpoint: Some("/models".to_string()),
-        supports_structured_output: false,
-    });
-
-    providers
+    ]
 }
 
 fn default_post_process_api_keys() -> SecretMap {
@@ -639,11 +609,31 @@ fn default_post_process_models() -> HashMap<String, String> {
 }
 
 fn default_post_process_prompts() -> Vec<LLMPrompt> {
-    vec![LLMPrompt {
-        id: "default_improve_transcriptions".to_string(),
-        name: "Improve Transcriptions".to_string(),
-        prompt: "Clean this transcript:\n1. Fix spelling, capitalization, and punctuation errors\n2. Convert number words to digits (twenty-five → 25, ten percent → 10%, five dollars → $5)\n3. Replace spoken punctuation with symbols (period → ., comma → ,, question mark → ?)\n4. Remove filler words (um, uh, like as filler)\n5. Keep the language in the original version (if it was french, keep it in french for example)\n\nPreserve exact meaning and word order. Do not paraphrase or reorder content.\n\nReturn only the cleaned transcript.\n\nTranscript:\n${output}".to_string(),
-    }]
+    vec![
+        LLMPrompt {
+            id: "clean_and_polish".to_string(),
+            name: "清洗与润色".to_string(),
+            prompt: "你是一个中文文本整理助手。用户刚通过语音输入了一段文字，你的任务是：\n1. 清理口语化赘词、停顿词和明显语气词\n2. 补充自然的中文标点，并修正明显错别字\n3. 保持原意，不要扩写，不要解释，不要添加新信息\n4. 如果提供了“选中文本”，优先结合选中文本理解用户当前想修改的内容\n\n请只输出处理后的最终文本。\n\n语音识别结果：\n${output}".to_string(),
+        },
+        LLMPrompt {
+            id: "rewrite_selected".to_string(),
+            name: "改写为更自然的表达".to_string(),
+            prompt: "你是一个中文写作助手。请将下面这段语音输入改写得更自然、更清晰、更适合直接发送给他人：\n1. 优先保留原意\n2. 语气自然，不要生硬\n3. 不要写解释，不要使用项目符号\n4. 如果提供了“选中文本”，优先把结果写成适合替换该选中文本的版本\n\n请只输出改写后的最终文本。\n\n语音识别结果：\n${output}".to_string(),
+        },
+        LLMPrompt {
+            id: "meeting_notes".to_string(),
+            name: "整理为会议纪要".to_string(),
+            prompt: "你是一个会议纪要助手。请把下面的语音识别内容整理成简洁清晰的中文会议纪要：\n1. 提炼要点\n2. 使用短标题或短项目符号整理信息\n3. 删除重复和明显口语赘词\n4. 不要虚构未提到的结论\n\n语音识别结果：\n${output}".to_string(),
+        },
+    ]
+}
+
+fn default_post_process_selected_prompt_id() -> Option<String> {
+    Some("clean_and_polish".to_string())
+}
+
+fn default_post_process_include_selected_text() -> bool {
+    true
 }
 
 fn default_whisper_gpu_device() -> i32 {
@@ -705,6 +695,39 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
                 changed = true;
             }
         }
+    }
+
+    if settings.post_process_prompts.is_empty() {
+        settings.post_process_prompts = default_post_process_prompts();
+        changed = true;
+    } else {
+        for prompt in default_post_process_prompts() {
+            if settings
+                .post_process_prompts
+                .iter()
+                .all(|existing| existing.id != prompt.id)
+            {
+                settings.post_process_prompts.push(prompt);
+                changed = true;
+            }
+        }
+    }
+
+    let selected_prompt_missing = settings
+        .post_process_selected_prompt_id
+        .as_ref()
+        .map(|selected_id| {
+            !settings
+                .post_process_prompts
+                .iter()
+                .any(|prompt| &prompt.id == selected_id)
+        })
+        .unwrap_or(true);
+
+    if selected_prompt_missing {
+        settings.post_process_selected_prompt_id = default_post_process_selected_prompt_id()
+            .or_else(|| settings.post_process_prompts.first().map(|prompt| prompt.id.clone()));
+        changed = true;
     }
 
     changed
@@ -804,7 +827,8 @@ pub fn get_default_settings() -> AppSettings {
         post_process_api_keys: default_post_process_api_keys(),
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
-        post_process_selected_prompt_id: None,
+        post_process_selected_prompt_id: default_post_process_selected_prompt_id(),
+        post_process_include_selected_text: default_post_process_include_selected_text(),
         mute_while_recording: false,
         append_trailing_space: false,
         app_language: default_app_language(),

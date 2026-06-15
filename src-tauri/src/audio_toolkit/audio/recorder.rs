@@ -452,19 +452,11 @@ fn run_consumer(
             AudioChunk::EndOfStream => continue,
         };
 
-        // ---------- spectrum processing ---------------------------------- //
-        if let Some(buckets) = visualizer.feed(&raw) {
-            if let Some(cb) = &level_cb {
-                cb(buckets);
-            }
-        }
+        let mut pending_stop = None;
+        let mut should_shutdown = false;
 
-        // ---------- existing pipeline ------------------------------------ //
-        frame_resampler.push(&raw, &mut |frame: &[f32]| {
-            handle_frame(frame, recording, &vad, &mut processed_samples)
-        });
-
-        // non-blocking check for a command
+        // Prioritize control commands before processing the current audio chunk so the
+        // first chunk after Cmd::Start is not accidentally discarded.
         while let Ok(cmd) = cmd_rx.try_recv() {
             match cmd {
                 Cmd::Start => {
@@ -477,43 +469,65 @@ fn run_consumer(
                     }
                 }
                 Cmd::Stop(reply_tx) => {
-                    recording = false;
-                    stop_flag.store(true, Ordering::Relaxed);
-
-                    // Drain all remaining audio until the producer confirms end-of-stream.
-                    // The cpal callback sees the stop flag, sends EndOfStream, and goes
-                    // silent — guaranteeing every captured sample is in the channel
-                    // ahead of the sentinel.
-                    loop {
-                        match sample_rx.recv_timeout(Duration::from_secs(2)) {
-                            Ok(AudioChunk::Samples(remaining)) => {
-                                frame_resampler.push(&remaining, &mut |frame: &[f32]| {
-                                    handle_frame(frame, true, &vad, &mut processed_samples)
-                                });
-                            }
-                            Ok(AudioChunk::EndOfStream) => break,
-                            Err(_) => {
-                                log::warn!("Timed out waiting for EndOfStream from audio callback");
-                                break;
-                            }
-                        }
-                    }
-
-                    frame_resampler.finish(&mut |frame: &[f32]| {
-                        handle_frame(frame, true, &vad, &mut processed_samples)
-                    });
-
-                    let _ = reply_tx.send(std::mem::take(&mut processed_samples));
-
-                    // Resume the audio callback so the consumer loop can continue
-                    // receiving chunks (important for always-on microphone mode).
-                    stop_flag.store(false, Ordering::Relaxed);
+                    pending_stop = Some(reply_tx);
+                    break;
                 }
                 Cmd::Shutdown => {
-                    stop_flag.store(true, Ordering::Relaxed);
-                    return;
+                    should_shutdown = true;
+                    break;
                 }
             }
+        }
+
+        // ---------- spectrum processing ---------------------------------- //
+        if let Some(buckets) = visualizer.feed(&raw) {
+            if let Some(cb) = &level_cb {
+                cb(buckets);
+            }
+        }
+
+        // ---------- existing pipeline ------------------------------------ //
+        frame_resampler.push(&raw, &mut |frame: &[f32]| {
+            handle_frame(frame, recording, &vad, &mut processed_samples)
+        });
+
+        if let Some(reply_tx) = pending_stop {
+            recording = false;
+            stop_flag.store(true, Ordering::Relaxed);
+
+            // Drain all remaining audio until the producer confirms end-of-stream.
+            // The cpal callback sees the stop flag, sends EndOfStream, and goes
+            // silent — guaranteeing every captured sample is in the channel
+            // ahead of the sentinel.
+            loop {
+                match sample_rx.recv_timeout(Duration::from_secs(2)) {
+                    Ok(AudioChunk::Samples(remaining)) => {
+                        frame_resampler.push(&remaining, &mut |frame: &[f32]| {
+                            handle_frame(frame, true, &vad, &mut processed_samples)
+                        });
+                    }
+                    Ok(AudioChunk::EndOfStream) => break,
+                    Err(_) => {
+                        log::warn!("Timed out waiting for EndOfStream from audio callback");
+                        break;
+                    }
+                }
+            }
+
+            frame_resampler.finish(&mut |frame: &[f32]| {
+                handle_frame(frame, true, &vad, &mut processed_samples)
+            });
+
+            let _ = reply_tx.send(std::mem::take(&mut processed_samples));
+
+            // Resume the audio callback so the consumer loop can continue
+            // receiving chunks (important for always-on microphone mode).
+            stop_flag.store(false, Ordering::Relaxed);
+        }
+
+        if should_shutdown {
+            stop_flag.store(true, Ordering::Relaxed);
+            return;
         }
     }
 }

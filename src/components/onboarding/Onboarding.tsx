@@ -116,6 +116,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-white/66 sm:text-[15px]">
                   {t("onboarding.subtitle")}
                 </p>
+                <p className="mt-1 max-w-2xl text-xs leading-6 text-[#aab7ff]/70 sm:text-[13px]">
+                  {t("onboarding.localRecognitionHint")}
+                </p>
               </div>
             </div>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">

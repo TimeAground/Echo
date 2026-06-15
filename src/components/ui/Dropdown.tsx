@@ -31,7 +31,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { menuRef, menuStyle } = useFloatingMenuPosition(dropdownRef, isOpen);
+  const estimatedMenuHeight = Math.min(
+    180,
+    Math.max(56, options.length * 44 + 12),
+  );
+  const { menuRef, menuStyle } = useFloatingMenuPosition(dropdownRef, isOpen, {
+    minHeight: estimatedMenuHeight,
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

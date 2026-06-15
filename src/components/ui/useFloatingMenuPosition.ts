@@ -15,7 +15,7 @@ export const useFloatingMenuPosition = (
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
 
-  const { offset = 8, minHeight = 180, maxHeight = 320 } = options;
+  const { offset = 8, minHeight = 96, maxHeight = 320 } = options;
 
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
@@ -35,9 +35,10 @@ export const useFloatingMenuPosition = (
     setMenuStyle({
       position: "fixed",
       left: rect.left,
-      top: placeAbove
-        ? Math.max(viewportPadding, rect.top - resolvedMaxHeight - offset)
-        : rect.bottom + offset,
+      top: placeAbove ? undefined : rect.bottom + offset,
+      bottom: placeAbove
+        ? Math.max(viewportPadding, window.innerHeight - rect.top + offset)
+        : undefined,
       width: rect.width,
       maxHeight: resolvedMaxHeight,
       zIndex: 80,

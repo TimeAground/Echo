@@ -18,7 +18,8 @@
     "about": "About"
   },
   "onboarding": {
-    "subtitle": "To get started, choose a transcription model",
+    "subtitle": "To get started, choose a local recognition model",
+    "localRecognitionHint": "SenseVoice is recommended for Chinese-first usage. This page configures local speech recognition, not the AI post-processing service used by Alt+Z.",
     "recommended": "Recommended",
     "download": "Download",
     "downloading": "Downloading...",
@@ -75,7 +76,7 @@
       },
       "sense-voice-int8": {
         "name": "SenseVoice",
-        "description": "Very fast. Chinese, English, Japanese, Korean, Cantonese."
+        "description": "Recommended for Chinese-first usage. Very fast. Chinese, English, Japanese, Korean, Cantonese."
       },
       "gigaam-v3-e2e-ctc": {
         "name": "GigaAM v3",
@@ -148,6 +149,35 @@
       "languageOnly": "{{language}} Only",
       "translation": "Can translate to English",
       "translate": "Translate to English"
+    },
+    "scenarios": {
+      "summary": "Best for {{items}}",
+      "tags": {
+        "chineseFirst": "Chinese-first",
+        "englishOnly": "English-only",
+        "multilingual": "Multi-language",
+        "taiwanMandarin": "Taiwan Mandarin",
+        "russianSpeech": "Russian",
+        "codeSwitch": "Code-switching",
+        "lowLatency": "Low latency",
+        "highAccuracy": "High accuracy",
+        "balanced": "Balanced",
+        "translation": "Translation",
+        "offline": "On-device"
+      },
+      "phrases": {
+        "chineseFirst": "Chinese-first dictation",
+        "englishOnly": "English dictation",
+        "multilingual": "multilingual recognition",
+        "taiwanMandarin": "Taiwan Mandarin recognition",
+        "russianSpeech": "Russian speech recognition",
+        "codeSwitch": "code-switching speech",
+        "lowLatency": "low-latency capture",
+        "highAccuracy": "high-accuracy transcription",
+        "balanced": "balanced everyday use",
+        "translation": "cross-language translation to English",
+        "offline": "fully on-device use"
+      }
     }
   },
   "settings": {
@@ -202,8 +232,8 @@
       }
     },
     "models": {
-      "title": "Transcription Models",
-      "description": "Select a transcription model or download additional models. Different models offer varying levels of accuracy and speed.",
+      "title": "Local Recognition Models",
+      "description": "Choose the speech recognition model that runs locally on your device. Different models focus on different language coverage, speed, and accuracy tradeoffs.",
       "yourModels": "Downloaded Models",
       "availableModels": "Available to Download",
       "downloaded": "Downloaded",
@@ -217,7 +247,8 @@
         "translation": "Translation",
         "allLanguages": "All Languages"
       },
-      "noModelsMatch": "No models match this filter."
+      "noModelsMatch": "No models match this filter.",
+      "localEngineNote": "This page manages local speech recognition models."
     },
     "sound": {
       "title": "Sound",
@@ -363,15 +394,20 @@
       }
     },
     "postProcessing": {
-      "title": "Post Process",
+      "title": "AI Post-Processing",
+      "pageNote": "This page configures the AI service and templates used by Alt+Z. It does not affect the local speech recognition path used by Alt+Q.",
       "hotkey": {
         "title": "Hotkey"
       },
+      "selectionContext": {
+        "label": "Include Selected Text",
+        "description": "When enabled, Alt+Z sends the currently selected text to the post-processing model as additional context."
+      },
       "api": {
-        "title": "API (OpenAI Compatible)",
+        "title": "AI Service (OpenAI Compatible)",
         "provider": {
           "title": "Provider",
-          "description": "Select an OpenAI-compatible provider."
+          "description": "Select the OpenAI-compatible AI service used for Alt+Z post-processing. Domestic Chinese providers are listed first."
         },
         "appleIntelligence": {
           "title": "Apple Intelligence",
@@ -393,7 +429,7 @@
           "title": "Model",
           "descriptionApple": "Provide an optional numeric token limit or keep the default on-device preset.",
           "descriptionCustom": "Provide the model identifier expected by your custom endpoint.",
-          "descriptionDefault": "Choose a model exposed by the selected provider.",
+          "descriptionDefault": "Choose the post-processing model exposed by the selected provider.",
           "placeholderApple": "Apple Intelligence",
           "placeholderWithOptions": "Search or select a model",
           "placeholderNoOptions": "Type a model name",
@@ -406,10 +442,10 @@
         }
       },
       "prompts": {
-        "title": "Post-Processing Template",
+        "title": "Chinese Templates",
         "selectedPrompt": {
           "title": "Selected Template",
-          "description": "Select a post-processing template for cleaning or reformatting the transcribed text after recognition. Use ${output} inside the prompt text to reference the captured transcript."
+          "description": "Select a Chinese post-processing template for cleaning, rewriting, or restructuring the recognized text after transcription. Use ${output} inside the prompt text to reference the captured transcript."
         },
         "noPrompts": "No prompts available",
         "selectPrompt": "Select a prompt",
@@ -528,6 +564,15 @@
         "title": "App Data Directory",
         "description": "Location where Echo stores its data"
       },
+      "modelPath": {
+        "title": "Current Model Path",
+        "description": "File or directory path of the active local transcription model",
+        "empty": "No transcription model is currently active."
+      },
+      "license": {
+        "title": "License",
+        "description": "Open-source license used by the current Echo codebase"
+      },
       "sourceCode": {
         "title": "Source Code",
         "description": "View source code and contribute",
@@ -608,14 +653,57 @@
     "modelLoadFailed": "Failed to load model: {{model}}",
     "modelLoadFailedUnknown": "unknown model",
     "pasteFailedTitle": "Failed to Paste Text",
-    "pasteFailed": "Text could not be pasted into the active application."
+    "pasteFailed": "Text could not be pasted into the active application.",
+    "postProcessConfigTitle": "Alt+Z Is Not Ready",
+    "postProcessConfig": {
+      "generic": "Post-processing is not fully configured yet. Check the provider, model, and template settings first.",
+      "missingApiKey": "No API key is configured for {{provider}} yet. Finish setup before using Alt+Z.",
+      "missingModel": "No post-processing model is selected for {{provider}} yet. Finish setup before using Alt+Z.",
+      "missingPrompt": "No usable post-processing template is selected yet. Finish setup in the post-processing page first.",
+      "missingProvider": "No post-processing provider is selected yet. Finish setup in the post-processing page first."
+    }
   },
   "appLanguage": {
     "title": "Application Language",
     "description": "Change the language of the Echo interface"
   },
   "overlay": {
+    "recording": "Listening",
+    "listeningHint": "Release shortcut to stop",
     "transcribing": "Transcribing...",
     "processing": "Processing..."
+  },
+  "floating": {
+    "title": "ECHO AI",
+    "copy": "Copy",
+    "replaceSelection": "Replace Selection",
+    "insertCurrent": "Insert Into Input",
+    "applyFailed": "Couldn't send the result back. Focus the target input and try again.",
+    "result": "Result",
+    "selectionBadge": "Selection Context Included",
+    "followUpTitle": "Continue",
+    "followUpDescription": "Ask follow-up questions or keep rewriting the current content.",
+    "followUpPlaceholder": "Tell Echo what to do next, for example: rewrite this in a more formal tone, or summarize it into three key points.",
+    "followUpHint": "Press Ctrl/Cmd + Enter to send",
+    "followUpEmpty": "Enter a follow-up instruction first.",
+    "followUpNeedsSetup": "Finish configuring the AI provider, model, and template in Settings before continuing here.",
+    "followUpFailed": "Follow-up processing failed. Please try again.",
+    "send": "Send",
+    "ready": "Ready",
+    "processing": "Processing",
+    "quickActions": {
+      "polish": "Polish",
+      "shorten": "Shorten",
+      "formal": "Make Formal",
+      "summarize": "Summarize"
+    },
+    "quickPrompts": {
+      "polish": "Polish this content into more natural, clear, and professional Chinese without changing its meaning.",
+      "shorten": "Make this content more concise without losing the important information.",
+      "formal": "Rewrite this content into a more formal style suitable for workplace communication.",
+      "summarize": "Extract the key information from this content and present it as 3 to 5 clear bullet points."
+    },
+    "empty": "Waiting for recognition result...",
+    "footer": "Press ESC to close · Drag to move"
   }
 }

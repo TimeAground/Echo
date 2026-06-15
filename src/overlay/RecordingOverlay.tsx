@@ -1,53 +1,46 @@
 import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Loader2, Mic, Sparkles, X } from "lucide-react";
 import "./RecordingOverlay.css";
-import { commands } from "@/bindings";
-import i18n, { syncLanguageFromSettings } from "@/i18n";
-import { getLanguageDirection } from "@/lib/utils/rtl";
 
-type OverlayState = "recording" | "transcribing" | "processing";
+type OverlayState = "recording";
 
 const RecordingOverlay: React.FC = () => {
-  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
-  const [state, setState] = useState<OverlayState>("recording");
-  const [levels, setLevels] = useState<number[]>(Array(16).fill(0));
-  const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
-  const direction = getLanguageDirection(i18n.language);
+  const [_state, setState] = useState<OverlayState>("recording");
+  const [levels, setLevels] = useState<number[]>(Array(12).fill(0.18));
+  const smoothedLevelsRef = useRef<number[]>(Array(12).fill(0.18));
 
   useEffect(() => {
     const setupEventListeners = async () => {
-      // Listen for show-overlay event from Rust
       const unlistenShow = await listen("show-overlay", async (event) => {
-        // Sync language from settings each time overlay is shown
-        await syncLanguageFromSettings();
         const overlayState = event.payload as OverlayState;
         setState(overlayState);
         setIsVisible(true);
       });
 
-      // Listen for hide-overlay event from Rust
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
       });
 
-      // Listen for mic-level updates
       const unlistenLevel = await listen<number[]>("mic-level", (event) => {
         const newLevels = event.payload as number[];
+        const centered = Array.from({ length: 12 }, (_, index) => {
+          const sourceIndex = Math.min(newLevels.length - 1, Math.floor(index / 1.35));
+          const mirroredIndex =
+            index < 6 ? sourceIndex : Math.max(0, newLevels.length - 1 - sourceIndex);
+          return newLevels[mirroredIndex] || 0;
+        });
 
-        // Apply smoothing to reduce jitter
         const smoothed = smoothedLevelsRef.current.map((prev, i) => {
-          const target = newLevels[i] || 0;
-          return prev * 0.7 + target * 0.3; // Smooth transition
+          const target = centered[i] || 0;
+          const weightedTarget = i >= 4 && i <= 7 ? target * 1.15 : target * 0.92;
+          return prev * 0.72 + weightedTarget * 0.28;
         });
 
         smoothedLevelsRef.current = smoothed;
-        setLevels(smoothed.slice(0, 9));
+        setLevels(smoothed);
       });
 
-      // Cleanup function
       return () => {
         unlistenShow();
         unlistenHide();
@@ -58,65 +51,26 @@ const RecordingOverlay: React.FC = () => {
     setupEventListeners();
   }, []);
 
-  const overlayLabel =
-    state === "recording"
-      ? t("overlay.recording")
-      : state === "transcribing"
-        ? t("overlay.transcribing")
-        : t("overlay.processing");
-
-  const getIcon = () => {
-    if (state === "recording") {
-      return <Mic className="h-4 w-4" />;
-    }
-    if (state === "transcribing") {
-      return <Loader2 className="h-4 w-4 animate-spin" />;
-    }
-    return <Sparkles className="h-4 w-4" />;
-  };
-
   return (
-    <div
-      dir={direction}
-      className={`recording-overlay ${isVisible ? "fade-in" : ""}`}
-    >
-      <div className="overlay-left">
-        <div className={`overlay-icon ${state}`}>{getIcon()}</div>
-      </div>
-
-      <div className="overlay-middle">
-        <div className="overlay-status">{overlayLabel}</div>
-        {state === "recording" && (
-          <div className="bars-container">
-            {levels.map((v, i) => (
-              <div
-                key={i}
-                className="bar"
-                style={{
-                  height: `${Math.min(20, 4 + Math.pow(v, 0.7) * 16)}px`, // Cap at 20px max height
-                  transition: "height 60ms ease-out, opacity 120ms ease-out",
-                  opacity: Math.max(0.2, v * 1.7), // Minimum opacity for visibility
-                }}
-              />
-            ))}
-          </div>
-        )}
-        {state !== "recording" && <div className="transcribing-text">{overlayLabel}</div>}
-      </div>
-
-      <div className="overlay-right">
-        {state === "recording" && (
-          <button
-            className="cancel-button"
-            onClick={() => {
-              commands.cancelOperation();
-            }}
-            type="button"
-            aria-label={t("common.cancel")}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+    <div className={`recording-overlay ${isVisible ? "fade-in" : ""}`}>
+      <div className="overlay-shell">
+        <div className="overlay-pulse pulse-primary" />
+        <div className="overlay-pulse pulse-secondary" />
+        <div className="overlay-core-glow" />
+        <div className="overlay-track" />
+        <div className="overlay-waveform" aria-hidden="true">
+          {levels.map((v, i) => (
+            <div
+              key={i}
+              className="bar"
+              style={{
+                height: `${Math.min(30, 6 + Math.pow(v, 0.76) * 24)}px`,
+                transition: "height 60ms ease-out, opacity 120ms ease-out",
+                opacity: Math.max(0.28, v * 1.9),
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

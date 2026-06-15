@@ -18,7 +18,8 @@
     "about": "关于"
   },
   "onboarding": {
-    "subtitle": "请选择一个转录模型以开始使用",
+    "subtitle": "请选择一个本地识别模型以开始使用",
+    "localRecognitionHint": "中文场景优先推荐 SenseVoice。这里配置的是本地语音识别模型，不是 Alt+Z 使用的 AI 后处理服务。",
     "recommended": "推荐",
     "download": "下载",
     "downloading": "下载中...",
@@ -75,7 +76,7 @@
       },
       "sense-voice-int8": {
         "name": "SenseVoice",
-        "description": "非常快速。支持中文、英语、日语、韩语、粤语。"
+        "description": "中文优先推荐。非常快速，支持中文、英语、日语、韩语、粤语。"
       },
       "gigaam-v3-e2e-ctc": {
         "name": "GigaAM v3",
@@ -147,6 +148,35 @@
       "singleLanguage": "仅支持此语言",
       "languageOnly": "仅 {{language}}"
     },
+    "scenarios": {
+      "summary": "适合 {{items}}",
+      "tags": {
+        "chineseFirst": "中文优先",
+        "englishOnly": "英语场景",
+        "multilingual": "多语言",
+        "taiwanMandarin": "台湾国语",
+        "russianSpeech": "俄语识别",
+        "codeSwitch": "混合语句",
+        "lowLatency": "低延迟",
+        "highAccuracy": "高准确度",
+        "balanced": "均衡",
+        "translation": "支持翻译",
+        "offline": "本地离线"
+      },
+      "phrases": {
+        "chineseFirst": "中文优先输入",
+        "englishOnly": "英语输入",
+        "multilingual": "多语言识别",
+        "taiwanMandarin": "台湾国语识别",
+        "russianSpeech": "俄语语音识别",
+        "codeSwitch": "中英混说",
+        "lowLatency": "低延迟输入",
+        "highAccuracy": "高准确度转写",
+        "balanced": "通用均衡场景",
+        "translation": "跨语种转英文",
+        "offline": "本地离线使用"
+      }
+    },
     "cancel": "取消",
     "cancelDownload": "取消下载"
   },
@@ -156,8 +186,8 @@
       "noSettingsNeeded": "此模型自动运行，无需配置。"
     },
     "models": {
-      "title": "转录模型",
-      "description": "选择转录模型或下载其他模型。不同模型提供不同的准确度和速度。",
+      "title": "本地识别模型",
+      "description": "选择在本机运行的语音识别模型。不同模型在中文支持、速度和准确度上各有侧重。",
       "downloaded": "已下载",
       "available": "可下载",
       "deleteConfirm": "确定要删除 {{modelName}} 吗？您需要重新下载才能使用。",
@@ -171,7 +201,8 @@
       },
       "noModelsMatch": "没有符合此筛选条件的模型。",
       "yourModels": "已下载的模型",
-      "availableModels": "可供下载"
+      "availableModels": "可供下载",
+      "localEngineNote": "这里管理本地语音识别模型。"
     },
     "general": {
       "title": "通用",
@@ -363,15 +394,20 @@
       }
     },
     "postProcessing": {
-      "title": "后处理",
+      "title": "AI 后处理",
+      "pageNote": "这里配置的是 Alt+Z 使用的 AI 后处理服务与模板，不影响 Alt+Q 的本地语音识别。推荐优先选择国内兼容 OpenAI 的服务商。",
       "hotkey": {
         "title": "快捷键"
       },
+      "selectionContext": {
+        "label": "携带选中文本",
+        "description": "启用后，Alt+Z 会将当前选中的文本一并作为上下文发送给后处理模型。"
+      },
       "api": {
-        "title": "API（兼容 OpenAI）",
+        "title": "AI 服务配置（兼容 OpenAI）",
         "provider": {
           "title": "提供商",
-          "description": "选择一个兼容 OpenAI 的提供商。"
+          "description": "选择一个用于 Alt+Z 后处理的兼容 OpenAI 服务商。已优先提供更适合中文场景的国内选项。"
         },
         "appleIntelligence": {
           "title": "Apple Intelligence",
@@ -393,7 +429,7 @@
           "title": "模型",
           "descriptionApple": "提供可选的数字令牌限制或保持默认的设备预设。",
           "descriptionCustom": "提供自定义端点期望的模型标识符。",
-          "descriptionDefault": "选择所选提供商提供的模型。",
+          "descriptionDefault": "选择所选服务商提供的后处理模型。",
           "placeholderApple": "Apple Intelligence",
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
@@ -406,10 +442,10 @@
         }
       },
       "prompts": {
-        "title": "后处理模板",
+        "title": "中文后处理模板",
         "selectedPrompt": {
           "title": "已选模板",
-          "description": "选择一个在识别完成后用于清洗、润色或改写转录文本的后处理模板。在提示词文本中使用 ${output} 来引用识别结果。"
+          "description": "选择一个在识别完成后用于清洗、润色、改写或整理内容的中文后处理模板。在提示词文本中使用 ${output} 来引用识别结果。"
         },
         "noPrompts": "没有可用的提示词",
         "selectPrompt": "选择提示词",
@@ -528,6 +564,15 @@
         "title": "应用数据目录",
         "description": "Echo 存储数据的位置"
       },
+      "modelPath": {
+        "title": "当前模型路径",
+        "description": "当前启用的本地转录模型文件或目录路径",
+        "empty": "当前还没有启用任何模型。"
+      },
+      "license": {
+        "title": "许可证",
+        "description": "Echo 当前代码基线所使用的开源许可证"
+      },
       "sourceCode": {
         "title": "源代码",
         "description": "查看源代码并贡献",
@@ -608,14 +653,57 @@
     "modelLoadFailed": "加载模型失败: {{model}}",
     "modelLoadFailedUnknown": "未知模型",
     "pasteFailedTitle": "粘贴文本失败",
-    "pasteFailed": "无法将文本粘贴到当前活动的应用程序中。"
+    "pasteFailed": "无法将文本粘贴到当前活动的应用程序中。",
+    "postProcessConfigTitle": "Alt+Z 尚未就绪",
+    "postProcessConfig": {
+      "generic": "后处理配置尚未完成，请先检查 Provider、模型和模板设置。",
+      "missingApiKey": "尚未为 {{provider}} 配置 API Key，请先完成配置后再使用 Alt+Z。",
+      "missingModel": "尚未为 {{provider}} 选择后处理模型，请先完成配置后再使用 Alt+Z。",
+      "missingPrompt": "尚未选择可用的后处理模板，请先在后处理页面完成配置。",
+      "missingProvider": "尚未选择后处理 Provider，请先在后处理页面完成配置。"
+    }
   },
   "appLanguage": {
     "title": "应用语言",
     "description": "更改 Echo 界面的语言"
   },
   "overlay": {
+    "recording": "正在聆听",
+    "listeningHint": "松开快捷键结束",
     "transcribing": "正在转录...",
     "processing": "处理中..."
+  },
+  "floating": {
+    "title": "ECHO AI",
+    "copy": "复制",
+    "replaceSelection": "替换选中",
+    "insertCurrent": "插入当前输入框",
+    "applyFailed": "未能回填到当前输入位置，请先聚焦目标输入框后重试。",
+    "result": "结果",
+    "selectionBadge": "含选中文本语境",
+    "followUpTitle": "继续处理",
+    "followUpDescription": "可以继续提问、改写、压缩或整理当前内容。",
+    "followUpPlaceholder": "继续告诉 Echo 你想怎么处理这段内容，例如：改成更正式的表达，或者帮我提炼三条要点。",
+    "followUpHint": "按 Ctrl/Cmd + Enter 可直接发送",
+    "followUpEmpty": "请先输入一个后续指令。",
+    "followUpNeedsSetup": "请先在设置里完成 AI 服务、模型和模板配置，再继续交互。",
+    "followUpFailed": "继续处理失败，请稍后重试。",
+    "send": "发送",
+    "ready": "可继续交互",
+    "processing": "处理中",
+    "quickActions": {
+      "polish": "润色表达",
+      "shorten": "压缩精简",
+      "formal": "更正式",
+      "summarize": "提炼要点"
+    },
+    "quickPrompts": {
+      "polish": "请在不改变原意的前提下，把这段内容润色成更自然、清晰、专业的中文表达。",
+      "shorten": "请在不丢失关键信息的前提下，把这段内容压缩得更简洁。",
+      "formal": "请把这段内容改写成更正式、更适合工作沟通的中文表达。",
+      "summarize": "请提炼这段内容的关键信息，并整理成 3 到 5 条清晰要点。"
+    },
+    "empty": "等待识别结果...",
+    "footer": "按 ESC 关闭 · 拖动移动"
   }
 }

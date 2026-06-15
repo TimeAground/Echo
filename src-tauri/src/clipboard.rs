@@ -37,29 +37,78 @@ pub fn has_editable_focus(_app_handle: &AppHandle) -> bool {
     }
 }
 
+pub fn get_selected_text(app_handle: &AppHandle) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        let clipboard = app_handle.clipboard();
+        let original_clipboard = clipboard.read_text().unwrap_or_default();
+        let sentinel = format!(
+            "__echo_selected_text_probe_{}__",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()?
+                .as_nanos()
+        );
+
+        if clipboard.write_text(&sentinel).is_err() {
+            return None;
+        }
+
+        let enigo_state = app_handle.try_state::<EnigoState>()?;
+        {
+            let mut enigo = enigo_state.0.lock().ok()?;
+            if input::send_copy_shortcut(&mut enigo).is_err() {
+                let _ = clipboard.write_text(&original_clipboard);
+                return None;
+            }
+        }
+
+        std::thread::sleep(Duration::from_millis(120));
+        let captured = clipboard.read_text().ok();
+        let _ = clipboard.write_text(&original_clipboard);
+
+        let selected_text = captured?;
+        if selected_text == sentinel || selected_text.trim().is_empty() {
+            return None;
+        }
+
+        return Some(selected_text);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app_handle;
+        None
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn has_editable_focus_windows() -> bool {
+    get_windows_focused_element()
+        .map(|element| is_windows_element_editable(&element))
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "windows")]
+fn get_windows_focused_element() -> Option<IUIAutomationElement> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
 
-        let automation: IUIAutomation =
-            match CoCreateInstance(&CUIAutomation, None, CLSCTX_ALL) {
-                Ok(automation) => automation,
-                Err(err) => {
-                    warn!("Failed to initialize UI Automation: {}", err);
-                    return false;
-                }
-            };
-
-        let element = match automation.GetFocusedElement() {
-            Ok(element) => element,
+        let automation: IUIAutomation = match CoCreateInstance(&CUIAutomation, None, CLSCTX_ALL) {
+            Ok(automation) => automation,
             Err(err) => {
-                debug!("Failed to get focused UI element: {}", err);
-                return false;
+                warn!("Failed to initialize UI Automation: {}", err);
+                return None;
             }
         };
 
-        is_windows_element_editable(&element)
+        match automation.GetFocusedElement() {
+            Ok(element) => Some(element),
+            Err(err) => {
+                debug!("Failed to get focused UI element: {}", err);
+                None
+            }
+        }
     }
 }
 
@@ -98,6 +147,10 @@ fn is_windows_element_editable(element: &IUIAutomationElement) -> bool {
     let caret_visible = has_visible_caret_on_windows();
 
     unsafe {
+        let has_text_pattern = element
+            .GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+            .is_ok();
+
         let is_enabled = element
             .CurrentIsEnabled()
             .map(|enabled| enabled.as_bool())
@@ -120,7 +173,7 @@ fn is_windows_element_editable(element: &IUIAutomationElement) -> bool {
                 return true;
             }
 
-            if control_type == UIA_DocumentControlTypeId && caret_visible {
+            if control_type == UIA_DocumentControlTypeId && (caret_visible || has_text_pattern) {
                 return true;
             }
         }
@@ -130,15 +183,41 @@ fn is_windows_element_editable(element: &IUIAutomationElement) -> bool {
             return true;
         }
 
-        let has_text_pattern = element
-            .GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
-            .is_ok();
         if caret_visible && has_text_pattern {
             return true;
         }
     }
 
     caret_visible
+}
+
+#[cfg(target_os = "windows")]
+fn get_windows_focused_text_snapshot() -> Option<String> {
+    let element = get_windows_focused_element()?;
+    read_windows_element_text(&element).map(|text| text.trim().to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_element_text(element: &IUIAutomationElement) -> Option<String> {
+    unsafe {
+        if let Ok(pattern) = element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)
+        {
+            if let Ok(value) = pattern.CurrentValue() {
+                return Some(value.to_string());
+            }
+        }
+
+        if let Ok(pattern) = element.GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+        {
+            if let Ok(range) = pattern.DocumentRange() {
+                if let Ok(text) = range.GetText(-1) {
+                    return Some(text.to_string());
+                }
+            }
+        }
+    }
+
+    None
 }
 
 /// Pastes text using the clipboard: saves current content, writes text, sends paste keystroke, restores clipboard.
@@ -151,6 +230,8 @@ fn paste_via_clipboard(
 ) -> Result<(), String> {
     let clipboard = app_handle.clipboard();
     let clipboard_content = clipboard.read_text().unwrap_or_default();
+    #[cfg(target_os = "windows")]
+    let focused_text_before = get_windows_focused_text_snapshot();
 
     // Write text to clipboard first
     // On Wayland, prefer wl-copy for better compatibility (especially with umlauts)
@@ -191,6 +272,18 @@ fn paste_via_clipboard(
     }
 
     std::thread::sleep(std::time::Duration::from_millis(50));
+
+    #[cfg(target_os = "windows")]
+    if let Some(before) = focused_text_before.as_ref() {
+        let focused_text_after = get_windows_focused_text_snapshot();
+        if focused_text_after.as_ref() == Some(before) {
+            warn!(
+                "Clipboard paste did not change the focused field; falling back to direct typing"
+            );
+            input::paste_text_direct(enigo, text)?;
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
+    }
 
     // Restore original clipboard content
     // On Wayland, prefer wl-copy for better compatibility

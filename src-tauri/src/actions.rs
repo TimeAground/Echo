@@ -8,9 +8,7 @@ use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{get_settings, AppSettings, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
-use crate::utils::{
-    self, show_processing_overlay, show_recording_overlay, show_transcribing_overlay,
-};
+use crate::utils::{self, show_recording_overlay};
 use crate::TranscriptionCoordinator;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error, warn};
@@ -25,6 +23,19 @@ use tauri::{AppHandle, Emitter};
 struct RecordingErrorEvent {
     error_type: String,
     detail: Option<String>,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct PostProcessConfigErrorEvent {
+    error_type: String,
+    provider_label: Option<String>,
+}
+
+enum PostProcessConfigError {
+    NoProvider,
+    NoModel { provider_label: String },
+    NoPrompt,
+    MissingApiKey { provider_label: String },
 }
 
 /// Drop guard that notifies the [`TranscriptionCoordinator`] when the
@@ -63,7 +74,154 @@ fn build_system_prompt(prompt_template: &str) -> String {
     prompt_template.replace("${output}", "").trim().to_string()
 }
 
-async fn post_process_transcription(settings: &AppSettings, transcription: &str) -> Option<String> {
+fn build_post_process_input(transcription: &str, selected_text: Option<&str>) -> String {
+    match selected_text.map(str::trim).filter(|text| !text.is_empty()) {
+        Some(selected_text) => format!(
+            "选中文本：\n{}\n\n语音指令或新增内容：\n{}",
+            selected_text, transcription
+        ),
+        None => transcription.to_string(),
+    }
+}
+
+fn selected_post_process_prompt(settings: &AppSettings) -> Option<String> {
+    let selected_prompt_id = settings.post_process_selected_prompt_id.as_ref()?;
+    let prompt = settings
+        .post_process_prompts
+        .iter()
+        .find(|prompt| &prompt.id == selected_prompt_id)?;
+
+    if prompt.prompt.trim().is_empty() {
+        return None;
+    }
+
+    Some(prompt.prompt.clone())
+}
+
+fn validate_post_process_config(settings: &AppSettings) -> Result<(), PostProcessConfigError> {
+    let provider = settings
+        .active_post_process_provider()
+        .ok_or(PostProcessConfigError::NoProvider)?;
+
+    let model = settings
+        .post_process_models
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+    if model.trim().is_empty() {
+        return Err(PostProcessConfigError::NoModel {
+            provider_label: provider.label.clone(),
+        });
+    }
+
+    let selected_prompt_id = settings
+        .post_process_selected_prompt_id
+        .as_ref()
+        .ok_or(PostProcessConfigError::NoPrompt)?;
+    let prompt = settings
+        .post_process_prompts
+        .iter()
+        .find(|prompt| &prompt.id == selected_prompt_id)
+        .ok_or(PostProcessConfigError::NoPrompt)?;
+    if prompt.prompt.trim().is_empty() {
+        return Err(PostProcessConfigError::NoPrompt);
+    }
+
+    let provider_requires_api_key =
+        provider.id != "custom" && provider.id != APPLE_INTELLIGENCE_PROVIDER_ID;
+    let api_key = settings
+        .post_process_api_keys
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+    if provider_requires_api_key && api_key.trim().is_empty() {
+        return Err(PostProcessConfigError::MissingApiKey {
+            provider_label: provider.label.clone(),
+        });
+    }
+
+    Ok(())
+}
+
+fn emit_post_process_config_error(app: &AppHandle, error: PostProcessConfigError) {
+    let payload = match error {
+        PostProcessConfigError::NoProvider => PostProcessConfigErrorEvent {
+            error_type: "no_provider".to_string(),
+            provider_label: None,
+        },
+        PostProcessConfigError::NoModel { provider_label } => PostProcessConfigErrorEvent {
+            error_type: "no_model".to_string(),
+            provider_label: Some(provider_label),
+        },
+        PostProcessConfigError::NoPrompt => PostProcessConfigErrorEvent {
+            error_type: "no_prompt".to_string(),
+            provider_label: None,
+        },
+        PostProcessConfigError::MissingApiKey { provider_label } => PostProcessConfigErrorEvent {
+            error_type: "missing_api_key".to_string(),
+            provider_label: Some(provider_label),
+        },
+    };
+
+    let _ = app.emit("post-process-config-error", payload);
+}
+
+async fn post_process_transcription(
+    settings: &AppSettings,
+    transcription: &str,
+    selected_text: Option<&str>,
+) -> Option<String> {
+    let Some(prompt) = selected_post_process_prompt(settings) else {
+        debug!("Post-processing skipped because the selected prompt is empty");
+        return None;
+    };
+
+    post_process_transcription_with_prompt(settings, &prompt, transcription, selected_text).await
+}
+
+pub(crate) async fn run_floating_follow_up_prompt(
+    app: &AppHandle,
+    source_text: &str,
+    instruction: &str,
+) -> Result<String, String> {
+    if source_text.trim().is_empty() {
+        return Err("NO_FLOATING_RESULT".to_string());
+    }
+
+    if instruction.trim().is_empty() {
+        return Err("EMPTY_INSTRUCTION".to_string());
+    }
+
+    let settings = get_settings(app);
+    if let Err(config_error) = validate_post_process_config(&settings) {
+        emit_post_process_config_error(app, config_error);
+        return Err("POST_PROCESS_CONFIG_INVALID".to_string());
+    }
+
+    let assistant_prompt = r#"你是 Echo 的中文文本助理。用户会提供一段“选中文本”作为当前内容，并给出新的编辑、追问或改写要求。
+
+请遵守以下规则：
+1. 优先根据“语音指令或新增内容”处理“选中文本”；
+2. 如果用户要求润色、压缩、改写、整理，请直接输出处理后的最终文本；
+3. 如果用户是在基于当前内容提问，请直接给出简洁、准确、有帮助的中文回答；
+4. 不要解释你的思路，不要输出分析过程，不要添加多余前缀；
+5. 除非指令明确要求，否则保持中文输出。"#;
+
+    let result =
+        post_process_transcription_with_prompt(&settings, assistant_prompt, instruction, Some(source_text))
+            .await
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| "FOLLOW_UP_FAILED".to_string())?;
+
+    Ok(result)
+}
+
+async fn post_process_transcription_with_prompt(
+    settings: &AppSettings,
+    prompt: &str,
+    transcription: &str,
+    selected_text: Option<&str>,
+) -> Option<String> {
     let provider = match settings.active_post_process_provider().cloned() {
         Some(provider) => provider,
         None => {
@@ -86,31 +244,8 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         return None;
     }
 
-    let selected_prompt_id = match &settings.post_process_selected_prompt_id {
-        Some(id) => id.clone(),
-        None => {
-            debug!("Post-processing skipped because no prompt is selected");
-            return None;
-        }
-    };
-
-    let prompt = match settings
-        .post_process_prompts
-        .iter()
-        .find(|prompt| prompt.id == selected_prompt_id)
-    {
-        Some(prompt) => prompt.prompt.clone(),
-        None => {
-            debug!(
-                "Post-processing skipped because prompt '{}' was not found",
-                selected_prompt_id
-            );
-            return None;
-        }
-    };
-
     if prompt.trim().is_empty() {
-        debug!("Post-processing skipped because the selected prompt is empty");
+        debug!("Post-processing skipped because the prompt is empty");
         return None;
     }
 
@@ -144,8 +279,8 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
-        let system_prompt = build_system_prompt(&prompt);
-        let user_content = transcription.to_string();
+        let system_prompt = build_system_prompt(prompt);
+        let user_content = build_post_process_input(transcription, selected_text);
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -191,7 +326,6 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
             }
         }
 
-        // Define JSON schema for transcription output
         let json_schema = serde_json::json!({
             "type": "object",
             "properties": {
@@ -217,7 +351,6 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         .await
         {
             Ok(Some(content)) => {
-                // Parse the JSON response to extract the transcription field
                 match serde_json::from_str::<serde_json::Value>(&content) {
                     Ok(json) => {
                         if let Some(transcription_value) =
@@ -253,13 +386,14 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
                     "Structured output failed for provider '{}': {}. Falling back to legacy mode.",
                     provider.id, e
                 );
-                // Fall through to legacy mode below
             }
         }
     }
 
-    // Legacy mode: Replace ${output} variable in the prompt with the actual text
-    let processed_prompt = prompt.replace("${output}", transcription);
+    let processed_prompt = prompt.replace(
+        "${output}",
+        &build_post_process_input(transcription, selected_text),
+    );
     debug!("Processed prompt length: {} chars", processed_prompt.len());
 
     match crate::llm_client::send_chat_completion(
@@ -344,6 +478,7 @@ pub(crate) struct ProcessedTranscription {
     pub final_text: String,
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
+    pub has_selection_context: bool,
 }
 
 pub(crate) async fn process_transcription_output(
@@ -355,24 +490,44 @@ pub(crate) async fn process_transcription_output(
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
+    let selected_text = if post_process && settings.post_process_include_selected_text {
+        utils::get_selected_text(app)
+    } else {
+        None
+    };
+    let has_selection_context = selected_text
+        .as_ref()
+        .map(|text| !text.trim().is_empty())
+        .unwrap_or(false);
 
     if let Some(converted_text) = maybe_convert_chinese_variant(&settings, transcription).await {
         final_text = converted_text;
     }
 
     if post_process {
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
-            post_processed_text = Some(processed_text.clone());
-            final_text = processed_text;
-
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
-                    .post_process_prompts
-                    .iter()
-                    .find(|prompt| &prompt.id == prompt_id)
+        match validate_post_process_config(&settings) {
+            Ok(()) => {
+                if let Some(processed_text) =
+                    post_process_transcription(&settings, &final_text, selected_text.as_deref())
+                        .await
                 {
-                    post_process_prompt = Some(prompt.prompt.clone());
+                    post_processed_text = Some(processed_text.clone());
+                    final_text = processed_text;
+
+                    if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
+                        if let Some(prompt) = settings
+                            .post_process_prompts
+                            .iter()
+                            .find(|prompt| &prompt.id == prompt_id)
+                        {
+                            post_process_prompt = Some(prompt.prompt.clone());
+                        }
+                    }
                 }
+            }
+            Err(config_error) => {
+                emit_post_process_config_error(app, config_error);
+                final_text.clear();
             }
         }
     } else if final_text != transcription {
@@ -383,6 +538,7 @@ pub(crate) async fn process_transcription_output(
         final_text,
         post_processed_text,
         post_process_prompt,
+        has_selection_context,
     }
 }
 
@@ -503,7 +659,7 @@ impl ShortcutAction for TranscribeAction {
         let hm = Arc::clone(&app.state::<Arc<HistoryManager>>());
 
         change_tray_icon(app, TrayIconState::Transcribing);
-        show_transcribing_overlay(app);
+        utils::hide_recording_overlay(app);
 
         // Unmute before playing audio feedback so the stop sound is audible
         rm.remove_mute();
@@ -580,9 +736,6 @@ impl ShortcutAction for TranscribeAction {
                                 transcription
                             );
 
-                            if post_process {
-                                show_processing_overlay(&ah);
-                            }
                             let processed =
                                 process_transcription_output(&ah, &transcription, post_process)
                                     .await;
@@ -606,6 +759,7 @@ impl ShortcutAction for TranscribeAction {
                             } else {
                                 let ah_clone = ah.clone();
                                 let final_text = processed.final_text;
+                                let has_selection_context = processed.has_selection_context;
                                 ah.run_on_main_thread(move || {
                                     if post_process {
                                         let has_focus = utils::has_editable_focus(&ah_clone);
@@ -623,13 +777,18 @@ impl ShortcutAction for TranscribeAction {
                                                         e
                                                     );
                                                     let _ = utils::show_floating_result(
-                                                        &ah_clone, &final_text,
+                                                        &ah_clone,
+                                                        &final_text,
+                                                        has_selection_context,
                                                     );
                                                 }
                                             }
                                         } else {
-                                            let _ =
-                                                utils::show_floating_result(&ah_clone, &final_text);
+                                            let _ = utils::show_floating_result(
+                                                &ah_clone,
+                                                &final_text,
+                                                has_selection_context,
+                                            );
                                         }
                                         utils::hide_recording_overlay(&ah_clone);
                                         change_tray_icon(&ah_clone, TrayIconState::Idle);

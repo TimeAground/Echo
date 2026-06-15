@@ -9,3 +9,8 @@ export interface RecordingErrorEvent {
   error_type: string;
   detail?: string;
 }
+
+export interface PostProcessConfigErrorEvent {
+  error_type: string;
+  provider_label?: string;
+}

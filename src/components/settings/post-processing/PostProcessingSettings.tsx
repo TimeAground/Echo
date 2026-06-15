@@ -10,6 +10,7 @@ import {
   SettingsGroup,
   Textarea,
 } from "@/components/ui";
+import { ToggleSwitch } from "../../ui/ToggleSwitch";
 import { Button } from "../../ui/Button";
 import { ResetButton } from "../../ui/ResetButton";
 import { Input } from "../../ui/Input";
@@ -452,9 +453,16 @@ PostProcessingSettingsPrompts.displayName = "PostProcessingSettingsPrompts";
 
 export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
+  const { getSetting, updateSetting, isUpdating } = useSettings();
+  const includeSelectedText =
+    getSetting("post_process_include_selected_text") ?? true;
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      <Alert variant="info" className="rounded-2xl border border-blue-400/10">
+        {t("settings.postProcessing.pageNote")}
+      </Alert>
+
       <SettingsGroup title={t("settings.postProcessing.hotkey.title")}>
         <ShortcutInput
           shortcutId="transcribe_with_post_process"
@@ -465,6 +473,17 @@ export const PostProcessingSettings: React.FC = () => {
 
       <SettingsGroup title={t("settings.postProcessing.api.title")}>
         <PostProcessingSettingsApi />
+        <ToggleSwitch
+          checked={includeSelectedText}
+          onChange={(enabled) =>
+            updateSetting("post_process_include_selected_text", enabled)
+          }
+          isUpdating={isUpdating("post_process_include_selected_text")}
+          label={t("settings.postProcessing.selectionContext.label")}
+          description={t("settings.postProcessing.selectionContext.description")}
+          descriptionMode="tooltip"
+          grouped={true}
+        />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.postProcessing.prompts.title")}>

@@ -235,23 +235,8 @@ export const ModelsSettings: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-white/88">
-                    {t("settings.models.yourModels")}
+                    {t("settings.models.title")}
                   </h2>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/42">
-                    <span>
-                      {t("settings.models.yourModels")} {downloadedModels.length}
-                    </span>
-                    {availableModels.length > 0 && (
-                      <span>
-                        {t("settings.models.availableModels")} {availableModels.length}
-                      </span>
-                    )}
-                    {isLanguageFilterActive && (
-                      <span className="rounded-full border border-[#7b6ef6]/18 bg-[#7b6ef6]/12 px-2 py-0.5 text-[#d8d6ff]">
-                        {selectedLanguageLabel}
-                      </span>
-                    )}
-                  </div>
                 </div>
               </div>
               <div

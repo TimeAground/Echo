@@ -7,7 +7,11 @@ import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from "tauri-plugin-macos-permissions-api";
-import { ModelStateEvent, RecordingErrorEvent } from "./lib/types/events";
+import {
+  ModelStateEvent,
+  PostProcessConfigErrorEvent,
+  RecordingErrorEvent,
+} from "./lib/types/events";
 import "./App.css";
 import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import Footer from "./components/footer";
@@ -132,6 +136,37 @@ function App() {
         description: t("errors.pasteFailed"),
       });
     });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [t]);
+
+  useEffect(() => {
+    const unlisten = listen<PostProcessConfigErrorEvent>(
+      "post-process-config-error",
+      (event) => {
+        const { error_type, provider_label } = event.payload;
+
+        let description = t("errors.postProcessConfig.generic");
+        if (error_type === "missing_api_key") {
+          description = t("errors.postProcessConfig.missingApiKey", {
+            provider: provider_label ?? t("common.default"),
+          });
+        } else if (error_type === "no_model") {
+          description = t("errors.postProcessConfig.missingModel", {
+            provider: provider_label ?? t("common.default"),
+          });
+        } else if (error_type === "no_prompt") {
+          description = t("errors.postProcessConfig.missingPrompt");
+        } else if (error_type === "no_provider") {
+          description = t("errors.postProcessConfig.missingProvider");
+        }
+
+        toast.error(t("errors.postProcessConfigTitle"), {
+          description,
+        });
+      },
+    );
     return () => {
       unlisten.then((fn) => fn());
     };

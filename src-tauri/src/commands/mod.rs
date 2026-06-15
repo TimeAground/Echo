@@ -22,8 +22,47 @@ pub fn get_floating_result() -> Option<String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn get_floating_selection_context() -> bool {
+    crate::utils::floating_result_has_selection_context()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn close_floating_window(app: AppHandle) {
     crate::utils::hide_floating_window(&app);
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn apply_floating_result(app: AppHandle) -> Result<(), String> {
+    let text = crate::utils::get_floating_result()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "No floating result available".to_string())?;
+
+    crate::utils::hide_floating_window(&app);
+    std::thread::sleep(std::time::Duration::from_millis(60));
+    crate::utils::paste(text, app)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn floating_window_ready(app: AppHandle) -> Result<(), String> {
+    crate::utils::floating_window_ready(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn run_floating_follow_up(app: AppHandle, instruction: String) -> Result<String, String> {
+    let source_text = crate::utils::get_floating_result()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "NO_FLOATING_RESULT".to_string())?;
+
+    let has_selection_context = crate::utils::floating_result_has_selection_context();
+    let result =
+        crate::actions::run_floating_follow_up_prompt(&app, &source_text, &instruction).await?;
+
+    crate::utils::show_floating_result(&app, &result, has_selection_context)?;
+    Ok(result)
 }
 
 #[tauri::command]

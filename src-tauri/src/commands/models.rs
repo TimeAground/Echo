@@ -23,6 +23,23 @@ pub async fn get_model_info(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_selected_model_path(
+    app: AppHandle,
+    model_manager: State<'_, Arc<ModelManager>>,
+) -> Result<Option<String>, String> {
+    let settings = get_settings(&app);
+    if settings.selected_model.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let path = model_manager
+        .get_model_path(&settings.selected_model)
+        .map_err(|e| e.to_string())?;
+    Ok(Some(path.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn download_model(
     app_handle: AppHandle,
     model_manager: State<'_, Arc<ModelManager>>,

@@ -30,8 +30,8 @@ tauri_panel! {
     })
 }
 
-const OVERLAY_WIDTH: f64 = 284.0;
-const OVERLAY_HEIGHT: f64 = 64.0;
+const OVERLAY_WIDTH: f64 = 236.0;
+const OVERLAY_HEIGHT: f64 = 56.0;
 
 #[cfg(target_os = "macos")]
 const OVERLAY_TOP_OFFSET: f64 = 46.0;
@@ -387,11 +387,22 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
 // ── Floating Answer Window ──────────────────────────────────────────
 
 const FLOATING_WIDTH: f64 = 420.0;
-const FLOATING_HEIGHT: f64 = 300.0;
+const FLOATING_HEIGHT: f64 = 430.0;
 
-fn floating_result_store() -> &'static Mutex<Option<String>> {
-    static FLOATING_RESULT: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+#[derive(Clone, Default)]
+struct FloatingResultState {
+    text: String,
+    has_selection_context: bool,
+}
+
+fn floating_result_store() -> &'static Mutex<Option<FloatingResultState>> {
+    static FLOATING_RESULT: OnceLock<Mutex<Option<FloatingResultState>>> = OnceLock::new();
     FLOATING_RESULT.get_or_init(|| Mutex::new(None))
+}
+
+fn floating_ready_store() -> &'static Mutex<bool> {
+    static FLOATING_READY: OnceLock<Mutex<bool>> = OnceLock::new();
+    FLOATING_READY.get_or_init(|| Mutex::new(false))
 }
 
 fn calculate_floating_position(app_handle: &AppHandle) -> Option<(f64, f64)> {
@@ -409,7 +420,19 @@ fn calculate_floating_position(app_handle: &AppHandle) -> Option<(f64, f64)> {
 }
 
 pub fn get_floating_result() -> Option<String> {
-    floating_result_store().lock().ok().and_then(|value| value.clone())
+    floating_result_store()
+        .lock()
+        .ok()
+        .and_then(|value| value.clone().map(|state| state.text))
+}
+
+pub fn floating_result_has_selection_context() -> bool {
+    floating_result_store()
+        .lock()
+        .ok()
+        .and_then(|value| value.clone())
+        .map(|state| state.has_selection_context)
+        .unwrap_or(false)
 }
 
 /// Create the floating answer window (hidden by default)
@@ -486,9 +509,41 @@ pub fn hide_floating_window(app_handle: &AppHandle) {
     }
 }
 
-pub fn show_floating_result(app_handle: &AppHandle, text: &str) -> Result<(), String> {
+pub fn floating_window_ready(app_handle: &AppHandle) -> Result<(), String> {
+    if let Ok(mut value) = floating_ready_store().lock() {
+        *value = true;
+    }
+
+    let window = app_handle
+        .get_webview_window("floating_answer")
+        .ok_or("Floating answer window is not available")?;
+
+    let state = floating_result_store()
+        .lock()
+        .ok()
+        .and_then(|value| value.clone());
+
+    if let Some(state) = state {
+        let payload = serde_json::json!({
+            "text": state.text,
+            "hasSelectionContext": state.has_selection_context,
+        });
+        let _ = window.emit("ai-result", payload);
+    }
+
+    Ok(())
+}
+
+pub fn show_floating_result(
+    app_handle: &AppHandle,
+    text: &str,
+    has_selection_context: bool,
+) -> Result<(), String> {
     if let Ok(mut value) = floating_result_store().lock() {
-        *value = Some(text.to_string());
+        *value = Some(FloatingResultState {
+            text: text.to_string(),
+            has_selection_context,
+        });
     }
 
     let window = app_handle
@@ -505,22 +560,23 @@ pub fn show_floating_result(app_handle: &AppHandle, text: &str) -> Result<(), St
 
     let _ = window.set_focus();
 
+    let ready = floating_ready_store()
+        .lock()
+        .ok()
+        .map(|value| *value)
+        .unwrap_or(false);
+    if !ready {
+        return Ok(());
+    }
+
     let payload = serde_json::json!({
         "text": text,
+        "hasSelectionContext": has_selection_context,
     });
 
     window
         .emit("ai-result", payload.clone())
         .map_err(|e| format!("Failed to emit floating result: {}", e))?;
-
-    let app_handle_clone = app_handle.clone();
-    let delayed_payload = payload.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(120));
-        if let Some(window) = app_handle_clone.get_webview_window("floating_answer") {
-            let _ = window.emit("ai-result", delayed_payload);
-        }
-    });
 
     Ok(())
 }
