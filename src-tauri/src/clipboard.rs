@@ -9,6 +9,32 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+// #region debug-point A:floating-runtime-issues
+fn __dbg_report(
+    hypothesis_id: &str,
+    location: &str,
+    msg: &str,
+    data: serde_json::Value,
+) {
+    let payload = serde_json::json!({
+        "sessionId": "floating-runtime-issues",
+        "runId": "pre-fix",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "msg": format!("[DEBUG] {}", msg),
+        "data": data,
+    });
+
+    tauri::async_runtime::spawn(async move {
+        let _ = reqwest::Client::new()
+            .post("http://127.0.0.1:7778/event")
+            .json(&payload)
+            .send()
+            .await;
+    });
+}
+// #endregion
+
 #[cfg(target_os = "windows")]
 use windows::Win32::{
     System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED},
@@ -28,7 +54,18 @@ use crate::utils::{is_kde_wayland, is_wayland};
 pub fn has_editable_focus(_app_handle: &AppHandle) -> bool {
     #[cfg(target_os = "windows")]
     {
-        return has_editable_focus_windows();
+        let result = has_editable_focus_windows();
+        // #region debug-point A:has-editable-focus
+        __dbg_report(
+            "A",
+            "src-tauri/src/clipboard.rs:has_editable_focus",
+            "Checked editable focus on Windows",
+            serde_json::json!({
+                "result": result,
+            }),
+        );
+        // #endregion
+        return result;
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -80,6 +117,37 @@ pub fn get_selected_text(app_handle: &AppHandle) -> Option<String> {
         let _ = app_handle;
         None
     }
+}
+
+pub fn dismiss_windows_alt_menu(app_handle: &AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let enigo_state = app_handle
+            .try_state::<EnigoState>()
+            .ok_or("Enigo state not initialized")?;
+        let mut enigo = enigo_state
+            .0
+            .lock()
+            .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
+
+        // #region debug-point A:dismiss-windows-alt-menu
+        __dbg_report(
+            "A",
+            "src-tauri/src/clipboard.rs:dismiss_windows_alt_menu",
+            "Dismissing Windows Alt menu mode before paste",
+            serde_json::json!({}),
+        );
+        // #endregion
+        input::send_escape_key(&mut enigo)?;
+        std::thread::sleep(Duration::from_millis(40));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app_handle;
+    }
+
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
@@ -232,6 +300,20 @@ fn paste_via_clipboard(
     let clipboard_content = clipboard.read_text().unwrap_or_default();
     #[cfg(target_os = "windows")]
     let focused_text_before = get_windows_focused_text_snapshot();
+    // #region debug-point A:paste-via-clipboard-enter
+    __dbg_report(
+        "A",
+        "src-tauri/src/clipboard.rs:paste_via_clipboard:enter",
+        "Entered clipboard paste",
+        serde_json::json!({
+            "textLength": text.len(),
+            "pasteMethod": format!("{:?}", paste_method),
+            "pasteDelayMs": paste_delay_ms,
+            "clipboardLengthBefore": clipboard_content.len(),
+            "focusedTextBefore": focused_text_before.clone(),
+        }),
+    );
+    // #endregion
 
     // Write text to clipboard first
     // On Wayland, prefer wl-copy for better compatibility (especially with umlauts)
@@ -276,10 +358,32 @@ fn paste_via_clipboard(
     #[cfg(target_os = "windows")]
     if let Some(before) = focused_text_before.as_ref() {
         let focused_text_after = get_windows_focused_text_snapshot();
+        // #region debug-point A:paste-via-clipboard-after
+        __dbg_report(
+            "A",
+            "src-tauri/src/clipboard.rs:paste_via_clipboard:after",
+            "Compared focused text before and after clipboard paste",
+            serde_json::json!({
+                "focusedTextBefore": before,
+                "focusedTextAfter": focused_text_after.clone(),
+                "unchanged": focused_text_after.as_ref() == Some(before),
+            }),
+        );
+        // #endregion
         if focused_text_after.as_ref() == Some(before) {
             warn!(
                 "Clipboard paste did not change the focused field; falling back to direct typing"
             );
+            // #region debug-point A:paste-via-clipboard-fallback-direct
+            __dbg_report(
+                "A",
+                "src-tauri/src/clipboard.rs:paste_via_clipboard:fallback_direct",
+                "Clipboard paste did not change focused field; falling back to direct typing",
+                serde_json::json!({
+                    "textLength": text.len(),
+                }),
+            );
+            // #endregion
             input::paste_text_direct(enigo, text)?;
             std::thread::sleep(std::time::Duration::from_millis(30));
         }
@@ -821,6 +925,21 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
     } else {
         text
     };
+    // #region debug-point A:paste-enter
+    __dbg_report(
+        "A",
+        "src-tauri/src/clipboard.rs:paste",
+        "Entered paste helper",
+        serde_json::json!({
+            "textLength": text.len(),
+            "pasteMethod": format!("{:?}", paste_method),
+            "pasteDelayMs": paste_delay_ms,
+            "autoSubmit": settings.auto_submit,
+            "autoSubmitKey": format!("{:?}", settings.auto_submit_key),
+            "appendTrailingSpace": settings.append_trailing_space,
+        }),
+    );
+    // #endregion
 
     info!(
         "Using paste method: {:?}, delay: {}ms",

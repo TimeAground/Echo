@@ -23,6 +23,26 @@ import { usePostProcessProviderState } from "../PostProcessingSettingsApi/usePos
 import { ShortcutInput } from "../ShortcutInput";
 import { useSettings } from "../../../hooks/useSettings";
 
+// #region debug-point A:postprocess-key-status
+const __DBG_URL = "http://127.0.0.1:7777/event";
+const __DBG_SESSION = "postprocess-key-status";
+const __dbg = (hypothesisId: string, location: string, msg: string, data?: unknown) => {
+  fetch(__DBG_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: __DBG_SESSION,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg: `[DEBUG] ${msg}`,
+      data,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
+};
+// #endregion
+
 const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
   const state = usePostProcessProviderState();
@@ -31,7 +51,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
     !state.isAppleProvider &&
     (state.isCustomProvider
       ? state.baseUrl.trim().length > 0
-      : state.apiKey.trim().length > 0);
+      : state.hasSavedApiKey);
 
   const modelNoOptionsMessage = state.isFetchingModels
     ? t("settings.postProcessing.api.model.loading")
@@ -50,6 +70,28 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
       state.handleRefreshModels();
     }
   };
+
+  useEffect(() => {
+    // #region debug-point E:apiTab-render
+    __dbg("E", "PostProcessingSettings.tsx:api", "api tab render", {
+      providerId: state.selectedProviderId,
+      hasSavedApiKey: state.hasSavedApiKey,
+      apiKeyValueLength: state.apiKey.length,
+      canFetchModels,
+      modelOptionsCount: state.modelOptions.length,
+      isFetchingModels: state.isFetchingModels,
+      modelNoOptionsMessage,
+    });
+    // #endregion
+  }, [
+    canFetchModels,
+    modelNoOptionsMessage,
+    state.apiKey.length,
+    state.hasSavedApiKey,
+    state.isFetchingModels,
+    state.modelOptions.length,
+    state.selectedProviderId,
+  ]);
 
   return (
     <>
@@ -109,9 +151,17 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
             <div className="w-full min-w-0">
               <ApiKeyField
                 value={state.apiKey}
+                isMasked={state.isApiKeyMasked}
+                onFocus={state.handleApiKeyFocus}
+                onChange={state.handleApiKeyInput}
                 onBlur={state.handleApiKeyChange}
                 placeholder={t(
                   "settings.postProcessing.api.apiKey.placeholder",
+                )}
+                helperText={t(
+                  state.hasSavedApiKey
+                    ? "settings.postProcessing.api.apiKey.savedHelper"
+                    : "settings.postProcessing.api.apiKey.emptyHelper",
                 )}
                 disabled={state.isApiKeyUpdating}
                 className="w-full"
@@ -480,7 +530,9 @@ export const PostProcessingSettings: React.FC = () => {
           }
           isUpdating={isUpdating("post_process_include_selected_text")}
           label={t("settings.postProcessing.selectionContext.label")}
-          description={t("settings.postProcessing.selectionContext.description")}
+          description={t(
+            "settings.postProcessing.selectionContext.description",
+          )}
           descriptionMode="tooltip"
           grouped={true}
         />

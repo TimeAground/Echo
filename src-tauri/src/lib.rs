@@ -12,6 +12,7 @@ mod llm_client;
 mod managers;
 mod overlay;
 pub mod portable;
+mod secrets;
 mod settings;
 mod shortcut;
 mod signal_handle;
@@ -387,9 +388,13 @@ pub fn run(cli_args: CliArgs) {
             commands::apply_floating_result,
             commands::floating_window_ready,
             commands::run_floating_follow_up,
+            commands::start_floating_voice_recording,
+            commands::stop_floating_voice_recording,
+            commands::cancel_floating_voice_recording,
             commands::is_portable,
             commands::get_app_dir_path,
             commands::get_app_settings,
+            commands::get_post_process_api_key_statuses,
             commands::get_default_settings,
             commands::get_log_dir_path,
             commands::set_log_level,

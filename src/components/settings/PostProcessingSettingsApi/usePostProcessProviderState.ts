@@ -1,8 +1,28 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSettings } from "../../../hooks/useSettings";
 import { commands, type PostProcessProvider } from "@/bindings";
 import type { ModelOption } from "./types";
 import type { DropdownOption } from "../../ui/Dropdown";
+
+// #region debug-point A:postprocess-key-status
+const __DBG_URL = "http://127.0.0.1:7777/event";
+const __DBG_SESSION = "postprocess-key-status";
+const __dbg = (hypothesisId: string, location: string, msg: string, data?: unknown) => {
+  fetch(__DBG_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: __DBG_SESSION,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg: `[DEBUG] ${msg}`,
+      data,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
+};
+// #endregion
 
 type PostProcessProviderState = {
   providerOptions: DropdownOption[];
@@ -15,6 +35,10 @@ type PostProcessProviderState = {
   handleBaseUrlChange: (value: string) => void;
   isBaseUrlUpdating: boolean;
   apiKey: string;
+  hasSavedApiKey: boolean;
+  isApiKeyMasked: boolean;
+  handleApiKeyFocus: () => void;
+  handleApiKeyInput: (value: string) => void;
   handleApiKeyChange: (value: string) => void;
   isApiKeyUpdating: boolean;
   model: string;
@@ -29,6 +53,7 @@ type PostProcessProviderState = {
 };
 
 const APPLE_PROVIDER_ID = "apple_intelligence";
+const MASKED_API_KEY_VALUE = "••••••••••••••••";
 
 export const usePostProcessProviderState = (): PostProcessProviderState => {
   const {
@@ -40,6 +65,7 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
     updatePostProcessModel,
     fetchPostProcessModels,
     postProcessModelOptions,
+    postProcessApiKeyStatuses,
   } = useSettings();
 
   // Settings are guaranteed to have providers after migration
@@ -60,9 +86,23 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
   const [appleIntelligenceUnavailable, setAppleIntelligenceUnavailable] =
     useState(false);
 
-  // Use settings directly as single source of truth
+  const [apiKeyDrafts, setApiKeyDrafts] = useState<Record<string, string>>({});
+  const [dirtyApiKeyProviders, setDirtyApiKeyProviders] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Use settings directly as single source of truth for persisted configuration,
+  // but keep API keys as local drafts because the backend no longer returns them.
   const baseUrl = selectedProvider?.base_url ?? "";
-  const apiKey = settings?.post_process_api_keys?.[selectedProviderId] ?? "";
+  const hasSavedApiKey = postProcessApiKeyStatuses[selectedProviderId] ?? false;
+  const hasApiKeyDraft = Object.prototype.hasOwnProperty.call(
+    apiKeyDrafts,
+    selectedProviderId,
+  );
+  const apiKey =
+    apiKeyDrafts[selectedProviderId] ??
+    (hasSavedApiKey ? MASKED_API_KEY_VALUE : "");
+  const isApiKeyMasked = !hasApiKeyDraft && hasSavedApiKey;
   const model = settings?.post_process_models?.[selectedProviderId] ?? "";
 
   const providerOptions = useMemo<DropdownOption[]>(() => {
@@ -98,9 +138,8 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
       // to avoid unnecessary backend errors.
       if (providerId !== APPLE_PROVIDER_ID) {
         const provider = providers.find((p) => p.id === providerId);
-        const apiKey = settings?.post_process_api_keys?.[providerId] ?? "";
         const hasBaseUrl = (provider?.base_url ?? "").trim() !== "";
-        const hasApiKey = apiKey.trim() !== "";
+        const hasApiKey = postProcessApiKeyStatuses[providerId] ?? false;
 
         if (provider?.id === "custom" ? hasBaseUrl : hasApiKey) {
           void fetchPostProcessModels(providerId);
@@ -112,7 +151,7 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
       setPostProcessProvider,
       fetchPostProcessModels,
       providers,
-      settings,
+      postProcessApiKeyStatuses,
     ],
   );
 
@@ -129,14 +168,52 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
     [selectedProvider, baseUrl, updatePostProcessBaseUrl],
   );
 
+  const handleApiKeyFocus = useCallback(() => {
+    // Keep the masked value visible on focus. The input component selects it
+    // so typing/pasting still replaces the saved key in one step.
+  }, []);
+
+  const handleApiKeyInput = useCallback(
+    (value: string) => {
+      setApiKeyDrafts((current) => ({
+        ...current,
+        [selectedProviderId]: value,
+      }));
+      setDirtyApiKeyProviders((current) => ({
+        ...current,
+        [selectedProviderId]: true,
+      }));
+    },
+    [selectedProviderId],
+  );
+
   const handleApiKeyChange = useCallback(
     (value: string) => {
-      const trimmed = value.trim();
-      if (trimmed !== apiKey) {
-        void updatePostProcessApiKey(selectedProviderId, trimmed);
+      if (value === MASKED_API_KEY_VALUE && isApiKeyMasked) {
+        return;
       }
+
+      if (!dirtyApiKeyProviders[selectedProviderId]) {
+        return;
+      }
+
+      const trimmed = value.trim();
+      setApiKeyDrafts((current) => ({
+        ...current,
+        [selectedProviderId]: trimmed,
+      }));
+      setDirtyApiKeyProviders((current) => ({
+        ...current,
+        [selectedProviderId]: false,
+      }));
+      void updatePostProcessApiKey(selectedProviderId, trimmed);
     },
-    [apiKey, selectedProviderId, updatePostProcessApiKey],
+    [
+      dirtyApiKeyProviders,
+      isApiKeyMasked,
+      selectedProviderId,
+      updatePostProcessApiKey,
+    ],
   );
 
   const handleModelChange = useCallback(
@@ -209,6 +286,30 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
 
   // No automatic fetching - user must click refresh button
 
+  useEffect(() => {
+    // #region debug-point A:providerState
+    __dbg("A", "usePostProcessProviderState.ts:state", "provider state", {
+      selectedProviderId,
+      selectedProviderLabel: selectedProvider?.label,
+      hasSavedApiKey,
+      hasApiKeyDraft,
+      isApiKeyMasked,
+      apiKeyValueLength: apiKey.length,
+      model,
+      availableModelsRawCount: availableModelsRaw.length,
+    });
+    // #endregion
+  }, [
+    apiKey.length,
+    availableModelsRaw.length,
+    hasApiKeyDraft,
+    hasSavedApiKey,
+    isApiKeyMasked,
+    model,
+    selectedProvider?.label,
+    selectedProviderId,
+  ]);
+
   return {
     providerOptions,
     selectedProviderId,
@@ -220,6 +321,10 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
     handleBaseUrlChange,
     isBaseUrlUpdating,
     apiKey,
+    hasSavedApiKey,
+    isApiKeyMasked,
+    handleApiKeyFocus,
+    handleApiKeyInput,
     handleApiKeyChange,
     isApiKeyUpdating,
     model,

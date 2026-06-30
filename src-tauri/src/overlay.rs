@@ -386,8 +386,8 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
 
 // ── Floating Answer Window ──────────────────────────────────────────
 
-const FLOATING_WIDTH: f64 = 420.0;
-const FLOATING_HEIGHT: f64 = 430.0;
+const FLOATING_WIDTH: f64 = 560.0;
+const FLOATING_HEIGHT: f64 = 620.0;
 
 #[derive(Clone, Default)]
 struct FloatingResultState {
@@ -424,6 +424,15 @@ pub fn get_floating_result() -> Option<String> {
         .lock()
         .ok()
         .and_then(|value| value.clone().map(|state| state.text))
+}
+
+pub fn set_floating_result(text: &str, has_selection_context: bool) {
+    if let Ok(mut value) = floating_result_store().lock() {
+        *value = Some(FloatingResultState {
+            text: text.to_string(),
+            has_selection_context,
+        });
+    }
 }
 
 pub fn floating_result_has_selection_context() -> bool {
@@ -539,12 +548,7 @@ pub fn show_floating_result(
     text: &str,
     has_selection_context: bool,
 ) -> Result<(), String> {
-    if let Ok(mut value) = floating_result_store().lock() {
-        *value = Some(FloatingResultState {
-            text: text.to_string(),
-            has_selection_context,
-        });
-    }
+    set_floating_result(text, has_selection_context);
 
     let window = app_handle
         .get_webview_window("floating_answer")

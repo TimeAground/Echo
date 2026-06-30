@@ -9,6 +9,26 @@ import type {
 } from "@/bindings";
 import { commands } from "@/bindings";
 
+// #region debug-point A:postprocess-key-status
+const __DBG_URL = "http://127.0.0.1:7777/event";
+const __DBG_SESSION = "postprocess-key-status";
+const __dbg = (hypothesisId: string, location: string, msg: string, data?: unknown) => {
+  fetch(__DBG_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: __DBG_SESSION,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg: `[DEBUG] ${msg}`,
+      data,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
+};
+// #endregion
+
 interface SettingsStore {
   settings: Settings | null;
   defaultSettings: Settings | null;
@@ -18,6 +38,7 @@ interface SettingsStore {
   outputDevices: AudioDevice[];
   customSounds: { start: boolean; stop: boolean };
   postProcessModelOptions: Record<string, string[]>;
+  postProcessApiKeyStatuses: Record<string, boolean>;
 
   // Actions
   initialize: () => Promise<void>;
@@ -53,6 +74,7 @@ interface SettingsStore {
   updatePostProcessModel: (providerId: string, model: string) => Promise<void>;
   fetchPostProcessModels: (providerId: string) => Promise<string[]>;
   setPostProcessModelOptions: (providerId: string, models: string[]) => void;
+  setPostProcessApiKeyStatuses: (statuses: Record<string, boolean>) => void;
 
   // Internal state setters
   setSettings: (settings: Settings | null) => void;
@@ -169,6 +191,7 @@ export const useSettingsStore = create<SettingsStore>()(
     outputDevices: [],
     customSounds: { start: false, stop: false },
     postProcessModelOptions: {},
+    postProcessApiKeyStatuses: {},
 
     // Internal setters
     setSettings: (settings) => set({ settings }),
@@ -181,6 +204,8 @@ export const useSettingsStore = create<SettingsStore>()(
     setAudioDevices: (audioDevices) => set({ audioDevices }),
     setOutputDevices: (outputDevices) => set({ outputDevices }),
     setCustomSounds: (customSounds) => set({ customSounds }),
+    setPostProcessApiKeyStatuses: (postProcessApiKeyStatuses) =>
+      set({ postProcessApiKeyStatuses }),
 
     // Getters
     getSetting: (key) => get().settings?.[key],
@@ -189,9 +214,24 @@ export const useSettingsStore = create<SettingsStore>()(
     // Load settings from store
     refreshSettings: async () => {
       try {
-        const result = await commands.getAppSettings();
-        if (result.status === "ok") {
-          const settings = result.data;
+        const [settingsResult, apiKeyStatusesResult] = await Promise.all([
+          commands.getAppSettings(),
+          commands.getPostProcessApiKeyStatuses(),
+        ]);
+
+        // #region debug-point A:refreshSettings
+        __dbg("A", "settingsStore.ts:refreshSettings", "refreshSettings results", {
+          settingsStatus: settingsResult.status,
+          apiKeyStatusesStatus: apiKeyStatusesResult.status,
+          apiKeyStatusesKeys:
+            apiKeyStatusesResult.status === "ok"
+              ? Object.keys(apiKeyStatusesResult.data)
+              : [],
+        });
+        // #endregion
+
+        if (settingsResult.status === "ok") {
+          const settings = settingsResult.data;
           const normalizedSettings: Settings = {
             ...settings,
             always_on_microphone: settings.always_on_microphone ?? false,
@@ -200,9 +240,33 @@ export const useSettingsStore = create<SettingsStore>()(
             selected_output_device:
               settings.selected_output_device ?? "Default",
           };
-          set({ settings: normalizedSettings, isLoading: false });
+          set({
+            settings: normalizedSettings,
+            postProcessApiKeyStatuses:
+              apiKeyStatusesResult.status === "ok"
+                ? apiKeyStatusesResult.data
+                : {},
+            isLoading: false,
+          });
+
+          // #region debug-point A:refreshSettings-applied
+          __dbg(
+            "A",
+            "settingsStore.ts:refreshSettings",
+            "refreshSettings applied",
+            {
+              providerId: normalizedSettings.post_process_provider_id,
+              hasSavedApiKey:
+                apiKeyStatusesResult.status === "ok"
+                  ? apiKeyStatusesResult.data[
+                      normalizedSettings.post_process_provider_id || ""
+                    ]
+                  : undefined,
+            },
+          );
+          // #endregion
         } else {
-          console.error("Failed to load settings:", result.error);
+          console.error("Failed to load settings:", settingsResult.error);
           set({ isLoading: false });
         }
       } catch (error) {
@@ -513,14 +577,79 @@ export const useSettingsStore = create<SettingsStore>()(
     },
 
     updatePostProcessApiKey: async (providerId, apiKey) => {
-      // Clear cached models when API key changes - user should click refresh after
+      const { setUpdating, refreshSettings } = get();
+      const updateKey = `post_process_api_key:${providerId}`;
+      const nextHasApiKey = apiKey.trim().length > 0;
+      const previousStatuses = get().postProcessApiKeyStatuses;
+
+      // #region debug-point A:updatePostProcessApiKey-enter
+      __dbg("A", "settingsStore.ts:updatePostProcessApiKey", "enter", {
+        providerId,
+        nextHasApiKey,
+        previousHasApiKey: previousStatuses[providerId],
+        apiKeyLength: apiKey.length,
+      });
+      // #endregion
+
+      setUpdating(updateKey, true);
+
       set((state) => ({
         postProcessModelOptions: {
           ...state.postProcessModelOptions,
           [providerId]: [],
         },
+        postProcessApiKeyStatuses: {
+          ...state.postProcessApiKeyStatuses,
+          [providerId]: nextHasApiKey,
+        },
       }));
-      return get().updatePostProcessSetting("api_key", providerId, apiKey);
+
+      try {
+        const result = await commands.changePostProcessApiKeySetting(
+          providerId,
+          apiKey,
+        );
+        if (result.status === "error") {
+          throw new Error(result.error);
+        }
+
+        // #region debug-point B:updatePostProcessApiKey-saved
+        __dbg("B", "settingsStore.ts:updatePostProcessApiKey", "saved to backend", {
+          providerId,
+          nextHasApiKey,
+        });
+        // #endregion
+
+        await refreshSettings();
+
+        // #region debug-point A:updatePostProcessApiKey-afterRefresh
+        __dbg(
+          "A",
+          "settingsStore.ts:updatePostProcessApiKey",
+          "after refreshSettings",
+          {
+            providerId,
+            storeHasSavedApiKey: get().postProcessApiKeyStatuses[providerId],
+          },
+        );
+        // #endregion
+
+        if (nextHasApiKey) {
+          await get().fetchPostProcessModels(providerId);
+        }
+      } catch (error) {
+        console.error("Failed to update post-process api key:", error);
+        set({ postProcessApiKeyStatuses: previousStatuses });
+
+        // #region debug-point B:updatePostProcessApiKey-error
+        __dbg("B", "settingsStore.ts:updatePostProcessApiKey", "error", {
+          providerId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        // #endregion
+      } finally {
+        setUpdating(updateKey, false);
+      }
     },
 
     updatePostProcessModel: async (providerId, model) => {
@@ -531,6 +660,13 @@ export const useSettingsStore = create<SettingsStore>()(
       const updateKey = `post_process_models_fetch:${providerId}`;
       const { setUpdating, setPostProcessModelOptions } = get();
 
+      // #region debug-point D:fetchPostProcessModels-enter
+      __dbg("D", "settingsStore.ts:fetchPostProcessModels", "enter", {
+        providerId,
+        hasSavedApiKey: get().postProcessApiKeyStatuses[providerId],
+      });
+      // #endregion
+
       setUpdating(updateKey, true);
 
       try {
@@ -538,13 +674,35 @@ export const useSettingsStore = create<SettingsStore>()(
         const result = await commands.fetchPostProcessModels(providerId);
         if (result.status === "ok") {
           setPostProcessModelOptions(providerId, result.data);
+
+          // #region debug-point D:fetchPostProcessModels-ok
+          __dbg("D", "settingsStore.ts:fetchPostProcessModels", "ok", {
+            providerId,
+            modelCount: result.data.length,
+          });
+          // #endregion
+
           return result.data;
         } else {
           console.error("Failed to fetch models:", result.error);
+
+          // #region debug-point D:fetchPostProcessModels-errorResult
+          __dbg("D", "settingsStore.ts:fetchPostProcessModels", "error result", {
+            providerId,
+            error: result.error,
+          });
+          // #endregion
+
           return [];
         }
       } catch (error) {
         console.error("Failed to fetch models:", error);
+        // #region debug-point D:fetchPostProcessModels-exception
+        __dbg("D", "settingsStore.ts:fetchPostProcessModels", "exception", {
+          providerId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        // #endregion
         // Don't cache empty array on error - let user retry
         return [];
       } finally {

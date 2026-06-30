@@ -137,6 +137,16 @@ pub fn send_copy_shortcut(enigo: &mut Enigo) -> Result<(), String> {
     Ok(())
 }
 
+/// Sends an Escape key press. On Windows this is used to dismiss the menu access
+/// mode that can remain active after Alt-based global shortcuts.
+pub fn send_escape_key(enigo: &mut Enigo) -> Result<(), String> {
+    enigo
+        .key(Key::Escape, enigo::Direction::Click)
+        .map_err(|e| format!("Failed to send Escape key: {}", e))?;
+
+    Ok(())
+}
+
 /// Pastes text directly using the enigo text method.
 /// This tries to use system input methods if possible, otherwise simulates keystrokes one by one.
 pub fn paste_text_direct(enigo: &mut Enigo, text: &str) -> Result<(), String> {

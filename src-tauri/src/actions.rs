@@ -5,6 +5,7 @@ use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
 use crate::managers::transcription::TranscriptionManager;
+use crate::secrets;
 use crate::settings::{get_settings, AppSettings, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
@@ -13,6 +14,7 @@ use crate::TranscriptionCoordinator;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -30,6 +32,32 @@ struct PostProcessConfigErrorEvent {
     error_type: String,
     provider_label: Option<String>,
 }
+
+// #region debug-point A:floating-runtime-issues
+fn __dbg_report(
+    hypothesis_id: &str,
+    location: &str,
+    msg: &str,
+    data: serde_json::Value,
+) {
+    let payload = json!({
+        "sessionId": "floating-runtime-issues",
+        "runId": "pre-fix",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "msg": format!("[DEBUG] {}", msg),
+        "data": data,
+    });
+
+    tauri::async_runtime::spawn(async move {
+        let _ = reqwest::Client::new()
+            .post("http://127.0.0.1:7778/event")
+            .json(&payload)
+            .send()
+            .await;
+    });
+}
+// #endregion
 
 enum PostProcessConfigError {
     NoProvider,
@@ -98,7 +126,10 @@ fn selected_post_process_prompt(settings: &AppSettings) -> Option<String> {
     Some(prompt.prompt.clone())
 }
 
-fn validate_post_process_config(settings: &AppSettings) -> Result<(), PostProcessConfigError> {
+async fn validate_post_process_config(
+    _app: &AppHandle,
+    settings: &AppSettings,
+) -> Result<(), PostProcessConfigError> {
     let provider = settings
         .active_post_process_provider()
         .ok_or(PostProcessConfigError::NoProvider)?;
@@ -129,11 +160,10 @@ fn validate_post_process_config(settings: &AppSettings) -> Result<(), PostProces
 
     let provider_requires_api_key =
         provider.id != "custom" && provider.id != APPLE_INTELLIGENCE_PROVIDER_ID;
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
+    let api_key = secrets::read_post_process_api_key(&provider.id, Some(&settings.post_process_api_keys))
+        .map_err(|_| PostProcessConfigError::MissingApiKey {
+            provider_label: provider.label.clone(),
+        })?;
     if provider_requires_api_key && api_key.trim().is_empty() {
         return Err(PostProcessConfigError::MissingApiKey {
             provider_label: provider.label.clone(),
@@ -167,6 +197,7 @@ fn emit_post_process_config_error(app: &AppHandle, error: PostProcessConfigError
 }
 
 async fn post_process_transcription(
+    app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     selected_text: Option<&str>,
@@ -176,13 +207,14 @@ async fn post_process_transcription(
         return None;
     };
 
-    post_process_transcription_with_prompt(settings, &prompt, transcription, selected_text).await
+    post_process_transcription_with_prompt(app, settings, &prompt, transcription, selected_text).await
 }
 
 pub(crate) async fn run_floating_follow_up_prompt(
     app: &AppHandle,
     source_text: &str,
     instruction: &str,
+    has_selection_context: bool,
 ) -> Result<String, String> {
     if source_text.trim().is_empty() {
         return Err("NO_FLOATING_RESULT".to_string());
@@ -193,30 +225,81 @@ pub(crate) async fn run_floating_follow_up_prompt(
     }
 
     let settings = get_settings(app);
-    if let Err(config_error) = validate_post_process_config(&settings) {
+    if let Err(config_error) = validate_post_process_config(app, &settings).await {
         emit_post_process_config_error(app, config_error);
         return Err("POST_PROCESS_CONFIG_INVALID".to_string());
     }
 
-    let assistant_prompt = r#"你是 Echo 的中文文本助理。用户会提供一段“选中文本”作为当前内容，并给出新的编辑、追问或改写要求。
+    let assistant_prompt = r#"你是 Echo 的中文文本助理。用户会提供一段“当前内容”，并给出新的编辑、追问或改写要求。
 
 请遵守以下规则：
-1. 优先根据“语音指令或新增内容”处理“选中文本”；
-2. 如果用户要求润色、压缩、改写、整理，请直接输出处理后的最终文本；
-3. 如果用户是在基于当前内容提问，请直接给出简洁、准确、有帮助的中文回答；
-4. 不要解释你的思路，不要输出分析过程，不要添加多余前缀；
-5. 除非指令明确要求，否则保持中文输出。"#;
+1. 优先根据“新的编辑、追问或改写要求”处理“当前内容”；
+2. 如果当前内容是用户原先选中的一段文本，就优先输出适合替换该段文本的最终版本；
+3. 如果当前内容是 Echo 刚生成的识别或改写结果，也要把它视为可继续编辑的当前内容，而不是要求用户再次提供选中文本；
+4. 如果用户要求润色、压缩、改写、整理，请直接输出处理后的最终文本；
+5. 如果用户是在基于当前内容提问，请直接给出简洁、准确、有帮助的中文回答；
+6. 不要解释你的思路，不要输出分析过程，不要添加多余前缀；
+7. 用户已经提供了完整的当前内容和新的要求，严禁回复“请提供当前内容”“请提供编辑要求”之类的索取信息话术；
+8. 除非指令明确要求，否则保持中文输出。"#;
+
+    let user_content_preview = if has_selection_context {
+        format!(
+            "当前选中文本：\n{}\n\n新的编辑、追问或改写要求：\n{}",
+            source_text.trim(),
+            instruction.trim()
+        )
+    } else {
+        format!(
+            "当前内容：\n{}\n\n新的编辑、追问或改写要求：\n{}",
+            source_text.trim(),
+            instruction.trim()
+        )
+    };
+    // #region debug-point C:floating-followup-prompt-input
+    __dbg_report(
+        "C",
+        "src-tauri/src/actions.rs:run_floating_follow_up_prompt",
+        "Built floating follow-up input",
+        json!({
+            "sourceTextLength": source_text.trim().len(),
+            "sourceTextPreview": source_text.chars().take(120).collect::<String>(),
+            "instruction": instruction.trim(),
+            "instructionLength": instruction.trim().len(),
+            "hasSelectionContext": has_selection_context,
+            "floatingInputPreview": user_content_preview.chars().take(220).collect::<String>(),
+        }),
+    );
+    // #endregion
 
     let result =
-        post_process_transcription_with_prompt(&settings, assistant_prompt, instruction, Some(source_text))
+        post_process_transcription_with_prompt(
+            app,
+            &settings,
+            assistant_prompt,
+            &user_content_preview,
+            None,
+        )
             .await
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| "FOLLOW_UP_FAILED".to_string())?;
+
+    // #region debug-point C:floating-followup-prompt-result
+    __dbg_report(
+        "C",
+        "src-tauri/src/actions.rs:run_floating_follow_up_prompt:result",
+        "Floating follow-up prompt produced result",
+        json!({
+            "resultLength": result.trim().len(),
+            "resultPreview": result.chars().take(120).collect::<String>(),
+        }),
+    );
+    // #endregion
 
     Ok(result)
 }
 
 async fn post_process_transcription_with_prompt(
+    _app: &AppHandle,
     settings: &AppSettings,
     prompt: &str,
     transcription: &str,
@@ -254,11 +337,16 @@ async fn post_process_transcription_with_prompt(
         provider.id, model
     );
 
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
+    let api_key = match secrets::read_post_process_api_key(&provider.id, Some(&settings.post_process_api_keys)) {
+        Ok(value) => value,
+        Err(error) => {
+            warn!(
+                "Post-processing skipped because API key for provider '{}' could not be loaded: {}",
+                provider.id, error
+            );
+            String::new()
+        }
+    };
 
     // Disable reasoning for providers where post-processing rarely benefits from it.
     // - custom: top-level reasoning_effort (works for local OpenAI-compat servers)
@@ -390,10 +478,12 @@ async fn post_process_transcription_with_prompt(
         }
     }
 
-    let processed_prompt = prompt.replace(
-        "${output}",
-        &build_post_process_input(transcription, selected_text),
-    );
+    let user_content = build_post_process_input(transcription, selected_text);
+    let processed_prompt = if prompt.contains("${output}") {
+        prompt.replace("${output}", &user_content)
+    } else {
+        format!("{}\n\n{}", prompt, user_content)
+    };
     debug!("Processed prompt length: {} chars", processed_prompt.len());
 
     match crate::llm_client::send_chat_completion(
@@ -505,10 +595,10 @@ pub(crate) async fn process_transcription_output(
     }
 
     if post_process {
-        match validate_post_process_config(&settings) {
+        match validate_post_process_config(app, &settings).await {
             Ok(()) => {
                 if let Some(processed_text) =
-                    post_process_transcription(&settings, &final_text, selected_text.as_deref())
+                    post_process_transcription(app, &settings, &final_text, selected_text.as_deref())
                         .await
                 {
                     post_processed_text = Some(processed_text.clone());
@@ -646,7 +736,7 @@ impl ShortcutAction for TranscribeAction {
         );
     }
 
-    fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str) {
         // Unregister the cancel shortcut when transcription stops
         shortcut::unregister_cancel_shortcut(app);
 
@@ -669,6 +759,7 @@ impl ShortcutAction for TranscribeAction {
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let post_process = self.post_process;
+        let shortcut_uses_alt = shortcut_str.to_ascii_lowercase().contains("alt");
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -763,15 +854,53 @@ impl ShortcutAction for TranscribeAction {
                                 ah.run_on_main_thread(move || {
                                     if post_process {
                                         let has_focus = utils::has_editable_focus(&ah_clone);
+                                        // #region debug-point A:post-process-output-branch
+                                        __dbg_report(
+                                            "A",
+                                            "src-tauri/src/actions.rs:post_process_output",
+                                            "Post-process output deciding between paste and floating window",
+                                            json!({
+                                                "hasFocus": has_focus,
+                                                "finalTextLength": final_text.len(),
+                                                "finalTextPreview": final_text.chars().take(120).collect::<String>(),
+                                                "hasSelectionContext": has_selection_context,
+                                            }),
+                                        );
+                                        // #endregion
 
                                         if has_focus {
                                             let paste_time = Instant::now();
+                                            if shortcut_uses_alt {
+                                                let _ = utils::dismiss_windows_alt_menu(&ah_clone);
+                                            }
                                             match utils::paste(final_text.clone(), ah_clone.clone()) {
-                                                Ok(()) => debug!(
-                                                    "AI result pasted successfully in {:?}",
-                                                    paste_time.elapsed()
-                                                ),
+                                                Ok(()) => {
+                                                    // #region debug-point A:post-process-paste-ok
+                                                    __dbg_report(
+                                                        "A",
+                                                        "src-tauri/src/actions.rs:post_process_output:paste_ok",
+                                                        "Post-process output pasted successfully",
+                                                        json!({
+                                                            "elapsedMs": paste_time.elapsed().as_millis(),
+                                                        }),
+                                                    );
+                                                    // #endregion
+                                                    debug!(
+                                                        "AI result pasted successfully in {:?}",
+                                                        paste_time.elapsed()
+                                                    )
+                                                }
                                                 Err(e) => {
+                                                    // #region debug-point A:post-process-paste-error
+                                                    __dbg_report(
+                                                        "A",
+                                                        "src-tauri/src/actions.rs:post_process_output:paste_error",
+                                                        "Post-process paste failed and will fall back to floating window",
+                                                        json!({
+                                                            "error": e,
+                                                        }),
+                                                    );
+                                                    // #endregion
                                                     warn!(
                                                         "Failed to paste AI result, falling back to floating window: {}",
                                                         e
@@ -784,6 +913,17 @@ impl ShortcutAction for TranscribeAction {
                                                 }
                                             }
                                         } else {
+                                            // #region debug-point A:post-process-show-floating
+                                            __dbg_report(
+                                                "A",
+                                                "src-tauri/src/actions.rs:post_process_output:show_floating",
+                                                "Editable focus not detected; showing floating window",
+                                                json!({
+                                                    "finalTextLength": final_text.len(),
+                                                    "hasSelectionContext": has_selection_context,
+                                                }),
+                                            );
+                                            // #endregion
                                             let _ = utils::show_floating_result(
                                                 &ah_clone,
                                                 &final_text,
@@ -795,12 +935,48 @@ impl ShortcutAction for TranscribeAction {
                                     } else {
                                         // Normal dictation mode: paste directly
                                         let paste_time = Instant::now();
+                                        if shortcut_uses_alt {
+                                            let _ = utils::dismiss_windows_alt_menu(&ah_clone);
+                                        }
+                                        // #region debug-point A:normal-dictation-paste-attempt
+                                        __dbg_report(
+                                            "A",
+                                            "src-tauri/src/actions.rs:normal_dictation_output",
+                                            "Normal dictation attempting paste",
+                                            json!({
+                                                "finalTextLength": final_text.len(),
+                                                "finalTextPreview": final_text.chars().take(120).collect::<String>(),
+                                            }),
+                                        );
+                                        // #endregion
                                         match utils::paste(final_text, ah_clone.clone()) {
-                                            Ok(()) => debug!(
-                                                "Text pasted successfully in {:?}",
-                                                paste_time.elapsed()
-                                            ),
+                                            Ok(()) => {
+                                                // #region debug-point A:normal-dictation-paste-ok
+                                                __dbg_report(
+                                                    "A",
+                                                    "src-tauri/src/actions.rs:normal_dictation_output:paste_ok",
+                                                    "Normal dictation paste succeeded",
+                                                    json!({
+                                                        "elapsedMs": paste_time.elapsed().as_millis(),
+                                                    }),
+                                                );
+                                                // #endregion
+                                                debug!(
+                                                    "Text pasted successfully in {:?}",
+                                                    paste_time.elapsed()
+                                                )
+                                            }
                                             Err(e) => {
+                                                // #region debug-point A:normal-dictation-paste-error
+                                                __dbg_report(
+                                                    "A",
+                                                    "src-tauri/src/actions.rs:normal_dictation_output:paste_error",
+                                                    "Normal dictation paste failed",
+                                                    json!({
+                                                        "error": e,
+                                                    }),
+                                                );
+                                                // #endregion
                                                 error!("Failed to paste transcription: {}", e);
                                                 let _ = ah_clone.emit("paste-error", ());
                                             }

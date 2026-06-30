@@ -1,3 +1,4 @@
+use crate::secrets;
 use log::{debug, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -529,7 +530,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             base_url: "https://api.deepseek.com/v1".to_string(),
             allow_base_url_edit: false,
             models_endpoint: Some("/models".to_string()),
-            supports_structured_output: true,
+            supports_structured_output: false,
         },
         PostProcessProvider {
             id: "bailian".to_string(),
@@ -733,6 +734,17 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
     changed
 }
 
+fn normalize_post_process_settings(settings: &mut AppSettings) -> bool {
+    let mut changed = ensure_post_process_defaults(settings);
+    if secrets::migrate_post_process_api_keys(settings) {
+        changed = true;
+    }
+    if secrets::scrub_post_process_api_keys(settings) {
+        changed = true;
+    }
+    changed
+}
+
 pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
@@ -914,7 +926,7 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
         default_settings
     };
 
-    if ensure_post_process_defaults(&mut settings) {
+    if normalize_post_process_settings(&mut settings) {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
@@ -938,18 +950,20 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         default_settings
     };
 
-    if ensure_post_process_defaults(&mut settings) {
+    if normalize_post_process_settings(&mut settings) {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
     settings
 }
 
-pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+pub fn write_settings(app: &AppHandle, mut settings: AppSettings) {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
+    ensure_post_process_defaults(&mut settings);
+    secrets::scrub_post_process_api_keys(&mut settings);
     store.set("settings", serde_json::to_value(&settings).unwrap());
 }
 

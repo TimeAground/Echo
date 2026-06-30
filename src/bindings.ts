@@ -466,6 +466,14 @@ async getAppSettings() : Promise<Result<AppSettings, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getPostProcessApiKeyStatuses() : Promise<Result<{ [key in string]: boolean }, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_post_process_api_key_statuses") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getDefaultSettings() : Promise<Result<AppSettings, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_default_settings") };
