@@ -709,6 +709,7 @@
     "send": "发送",
     "ready": "可继续交互",
     "processing": "处理中",
+    "optimizing": "正在 AI 优化…",
     "quickActions": {
       "polish": "润色表达",
       "shorten": "压缩精简",

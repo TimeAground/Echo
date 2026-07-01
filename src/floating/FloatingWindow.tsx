@@ -37,7 +37,11 @@ const __dbgReport = (
   }).catch(() => {});
 // #endregion
 
-type AiResultEvent = { text: string; hasSelectionContext?: boolean };
+type AiResultEvent = {
+  text: string;
+  hasSelectionContext?: boolean;
+  processing?: boolean;
+};
 type ConversationRole = "assistant" | "user";
 type ConversationVariant = "result" | "message";
 
@@ -502,13 +506,26 @@ const FloatingWindow: React.FC = () => {
           textLength: (payload.text || "").length,
           preview: (payload.text || "").slice(0, 120),
           hasSelectionContext: Boolean(payload.hasSelectionContext),
+          processing: Boolean(payload.processing),
         },
       );
       // #endregion
-      hydrateFromExternalResult(
-        payload.text || "",
-        Boolean(payload.hasSelectionContext),
-      );
+
+      if (payload.processing) {
+        // Show raw transcription with processing state (方案 A)
+        setText(payload.text || "");
+        setHasSelectionContext(Boolean(payload.hasSelectionContext));
+        setConversation(buildInitialConversation(payload.text || ""));
+        setIsProcessing(true);
+        setActionError("");
+        setInfoMessage(t("floating.optimizing"));
+        lastExternalTextRef.current = payload.text || "";
+      } else {
+        hydrateFromExternalResult(
+          payload.text || "",
+          Boolean(payload.hasSelectionContext),
+        );
+      }
 
       const win = getCurrentWindow();
       void win.show();

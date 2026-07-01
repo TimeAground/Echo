@@ -101,6 +101,7 @@ fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwes
     let headers = build_headers(provider, api_key)?;
     reqwest::Client::builder()
         .default_headers(headers)
+        .no_proxy()
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }

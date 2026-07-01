@@ -709,6 +709,7 @@
     "send": "Send",
     "ready": "Ready",
     "processing": "Processing",
+    "optimizing": "Optimizing with AI…",
     "quickActions": {
       "polish": "Polish",
       "shorten": "Shorten",

@@ -827,6 +827,20 @@ impl ShortcutAction for TranscribeAction {
                                 transcription
                             );
 
+                            // 方案 A: For post-processing mode, immediately show the
+                            // floating window with the raw transcription so the user
+                            // gets instant feedback. The LLM result will replace it.
+                            // We pass has_selection_context=false to avoid a Ctrl+C call
+                            // here (which would conflict with clipboard operations in
+                            // process_transcription_output below).
+                            if post_process {
+                                let _ = crate::utils::show_floating_processing(
+                                    &ah,
+                                    &transcription,
+                                    false,
+                                );
+                            }
+
                             let processed =
                                 process_transcription_output(&ah, &transcription, post_process)
                                     .await;
@@ -875,6 +889,14 @@ impl ShortcutAction for TranscribeAction {
                                             }
                                             match utils::paste(final_text.clone(), ah_clone.clone()) {
                                                 Ok(()) => {
+                                                    // Update the floating window (which is showing the
+                                                    // raw transcription in processing state) with the
+                                                    // final AI-optimized result.
+                                                    let _ = utils::update_floating_result(
+                                                        &ah_clone,
+                                                        &final_text,
+                                                        has_selection_context,
+                                                    );
                                                     // #region debug-point A:post-process-paste-ok
                                                     __dbg_report(
                                                         "A",

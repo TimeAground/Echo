@@ -548,6 +548,51 @@ pub fn show_floating_result(
     text: &str,
     has_selection_context: bool,
 ) -> Result<(), String> {
+    emit_floating_result(app_handle, text, has_selection_context, false)
+}
+
+/// Show the floating window with raw transcription and a "processing" state.
+/// The front-end will display a loading indicator while the LLM is working.
+pub fn show_floating_processing(
+    app_handle: &AppHandle,
+    text: &str,
+    has_selection_context: bool,
+) -> Result<(), String> {
+    emit_floating_result(app_handle, text, has_selection_context, true)
+}
+
+/// Update an already-open floating window with new text (e.g. after LLM completes).
+/// Does not change window visibility or focus.
+pub fn update_floating_result(
+    app_handle: &AppHandle,
+    text: &str,
+    has_selection_context: bool,
+) -> Result<(), String> {
+    set_floating_result(text, has_selection_context);
+
+    let window = app_handle
+        .get_webview_window("floating_answer")
+        .ok_or("Floating answer window is not available")?;
+
+    let payload = serde_json::json!({
+        "text": text,
+        "hasSelectionContext": has_selection_context,
+        "processing": false,
+    });
+
+    window
+        .emit("ai-result", payload)
+        .map_err(|e| format!("Failed to emit floating result: {}", e))?;
+
+    Ok(())
+}
+
+fn emit_floating_result(
+    app_handle: &AppHandle,
+    text: &str,
+    has_selection_context: bool,
+    processing: bool,
+) -> Result<(), String> {
     set_floating_result(text, has_selection_context);
 
     let window = app_handle
@@ -576,10 +621,11 @@ pub fn show_floating_result(
     let payload = serde_json::json!({
         "text": text,
         "hasSelectionContext": has_selection_context,
+        "processing": processing,
     });
 
     window
-        .emit("ai-result", payload.clone())
+        .emit("ai-result", payload)
         .map_err(|e| format!("Failed to emit floating result: {}", e))?;
 
     Ok(())
