@@ -614,7 +614,7 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
         LLMPrompt {
             id: "clean_and_polish".to_string(),
             name: "清洗与润色".to_string(),
-            prompt: "你是一个中文文本整理助手。用户刚通过语音输入了一段文字，你的任务是：\n1. 清理口语化赘词、停顿词和明显语气词\n2. 补充自然的中文标点，并修正明显错别字\n3. 保持原意，不要扩写，不要解释，不要添加新信息\n4. 如果提供了“选中文本”，优先结合选中文本理解用户当前想修改的内容\n\n请只输出处理后的最终文本。\n\n语音识别结果：\n${output}".to_string(),
+            prompt: "你是一个中文文本整理助手。用户刚通过语音输入了一段文字，你的任务是：\n1. 清理口语化赘词、停顿词和明显语气词\n2. 补充自然的中文标点\n3. **优先用上下文和常识纠正语音识别导致的同音/近音错别字**（包括专有名词、作家作品名、成语等）；如不确定可以保留原词\n4. 保持原意，不要扩写，不要解释，不要添加新信息\n5. 如果提供了“选中文本”，优先结合选中文本理解用户当前想修改的内容\n\n请只输出处理后的最终文本。\n\n语音识别结果：\n${output}".to_string(),
         },
         LLMPrompt {
             id: "rewrite_selected".to_string(),
@@ -702,14 +702,25 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
         settings.post_process_prompts = default_post_process_prompts();
         changed = true;
     } else {
-        for prompt in default_post_process_prompts() {
-            if settings
+        for default_prompt in default_post_process_prompts() {
+            match settings
                 .post_process_prompts
-                .iter()
-                .all(|existing| existing.id != prompt.id)
+                .iter_mut()
+                .find(|existing| existing.id == default_prompt.id)
             {
-                settings.post_process_prompts.push(prompt);
-                changed = true;
+                Some(existing) => {
+                    // Sync prompt text for known default prompts, so improvements
+                    // to the default prompts (e.g., stronger ASR error correction)
+                    // apply to existing users as well.
+                    if existing.prompt != default_prompt.prompt {
+                        existing.prompt = default_prompt.prompt;
+                        changed = true;
+                    }
+                }
+                None => {
+                    settings.post_process_prompts.push(default_prompt);
+                    changed = true;
+                }
             }
         }
     }
