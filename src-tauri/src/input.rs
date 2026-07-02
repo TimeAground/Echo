@@ -1,4 +1,5 @@
 use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
+use log::warn;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
@@ -162,12 +163,12 @@ pub fn paste_text_direct(enigo: &mut Enigo, text: &str) -> Result<(), String> {
         }
     }
 
-    // Fallback: type each character individually with key_click.
+    // Fallback: type each character individually as key events.
     // More compatible with web apps (Google Docs, Notion, etc.)
     // that may not accept composed text events.
     for c in text.chars() {
         enigo
-            .key_click(enigo::Key::Character(c))
+            .key(Key::Unicode(c), enigo::Direction::Click)
             .map_err(|e| format!("Failed to type character '{}': {}", c, e))?;
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
