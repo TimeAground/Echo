@@ -44,10 +44,10 @@ export const SECTIONS_CONFIG = {
     component: ModelsSettings,
     enabled: () => true,
   },
-  advanced: {
-    labelKey: "sidebar.advanced",
-    icon: Cog,
-    component: AdvancedSettings,
+  postprocessing: {
+    labelKey: "sidebar.postProcessing",
+    icon: Sparkles,
+    component: PostProcessingSettings,
     enabled: () => true,
   },
   history: {
@@ -56,10 +56,10 @@ export const SECTIONS_CONFIG = {
     component: HistorySettings,
     enabled: () => true,
   },
-  postprocessing: {
-    labelKey: "sidebar.postProcessing",
-    icon: Sparkles,
-    component: PostProcessingSettings,
+  advanced: {
+    labelKey: "sidebar.advanced",
+    icon: Cog,
+    component: AdvancedSettings,
     enabled: () => true,
   },
   debug: {

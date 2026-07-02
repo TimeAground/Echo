@@ -150,9 +150,27 @@ pub fn send_escape_key(enigo: &mut Enigo) -> Result<(), String> {
 /// Pastes text directly using the enigo text method.
 /// This tries to use system input methods if possible, otherwise simulates keystrokes one by one.
 pub fn paste_text_direct(enigo: &mut Enigo, text: &str) -> Result<(), String> {
-    enigo
-        .text(text)
-        .map_err(|e| format!("Failed to send text directly: {}", e))?;
+    // First try enigo.text() which sends composed text events.
+    // This works for most native and web input fields.
+    match enigo.text(text) {
+        Ok(()) => return Ok(()),
+        Err(e) => {
+            warn!(
+                "enigo.text() failed for direct typing: {}. Falling back to character-by-character typing.",
+                e
+            );
+        }
+    }
+
+    // Fallback: type each character individually with key_click.
+    // More compatible with web apps (Google Docs, Notion, etc.)
+    // that may not accept composed text events.
+    for c in text.chars() {
+        enigo
+            .key_click(enigo::Key::Character(c))
+            .map_err(|e| format!("Failed to type character '{}': {}", c, e))?;
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
 
     Ok(())
 }

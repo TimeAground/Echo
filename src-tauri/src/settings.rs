@@ -334,7 +334,7 @@ impl std::ops::DerefMut for SecretMap {
     }
 }
 
-/* still handy for composing the initial JSON in the store ------------- */
+// still useful for composing the initial JSON in the store
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct AppSettings {
     pub bindings: HashMap<String, ShortcutBinding>,
@@ -793,7 +793,7 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
     // Note: The transcribe_with_post_process shortcut still uses old default
-    // since Handy's original design merged AI post-processing into transcription.
+    // Note: post_process is separate from transcription in Echo's design.
     // Echo will add dedicated AI mode and floating window shortcuts separately.
     #[cfg(target_os = "windows")]
     let default_post_process_shortcut = "alt+z";
