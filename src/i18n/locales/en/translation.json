@@ -207,6 +207,10 @@
             "name": "Post-Processing Hotkey",
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
           },
+          "open_floating_with_selected_text": {
+            "name": "Edit Selected Text",
+            "description": "Opens the floating window with the current text selection for AI editing."
+          },
           "floating_window": {
             "name": "Floating Window",
             "description": "Toggle the floating AI answer window."

@@ -1047,6 +1047,30 @@ impl ShortcutAction for TranscribeAction {
     }
 }
 
+// Open Floating Window with Selected Text
+pub(crate) struct OpenFloatingWithSelectedTextAction;
+
+impl ShortcutAction for OpenFloatingWithSelectedTextAction {
+    fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        debug!("OpenFloatingWithSelectedTextAction started");
+
+        let selected = crate::clipboard::get_selected_text(app);
+        let text = match selected {
+            Some(ref t) if !t.trim().is_empty() => t.clone(),
+            _ => {
+                debug!("No selected text found, ignoring");
+                return;
+            }
+        };
+
+        let _ = crate::utils::show_floating_processing(app, &text, false);
+    }
+
+    fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        // No-op: action completes in start()
+    }
+}
+
 // Cancel Action
 struct CancelAction;
 
@@ -1095,6 +1119,10 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     map.insert(
         "transcribe_with_post_process".to_string(),
         Arc::new(TranscribeAction { post_process: true }) as Arc<dyn ShortcutAction>,
+    );
+    map.insert(
+        "open_floating_with_selected_text".to_string(),
+        Arc::new(OpenFloatingWithSelectedTextAction) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "cancel".to_string(),

@@ -816,6 +816,17 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
     bindings.insert(
+        "open_floating_with_selected_text".to_string(),
+        ShortcutBinding {
+            id: "open_floating_with_selected_text".to_string(),
+            name: "Edit Selected Text".to_string(),
+            description: "Opens the floating window with selected text for AI editing."
+                .to_string(),
+            default_binding: "alt+x".to_string(),
+            current_binding: "alt+x".to_string(),
+        },
+    );
+    bindings.insert(
         "cancel".to_string(),
         ShortcutBinding {
             id: "cancel".to_string(),
