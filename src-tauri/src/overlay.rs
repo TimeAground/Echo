@@ -1,7 +1,7 @@
 use crate::input;
 use crate::settings;
 use crate::settings::OverlayPosition;
-use log::debug;
+use log::{debug, error};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
@@ -482,7 +482,7 @@ pub fn create_floating_window(app_handle: &AppHandle) {
             debug!("Floating answer window created successfully (hidden)");
         }
         Err(e) => {
-            debug!("Failed to create floating answer window: {}", e);
+            error!("Failed to create floating answer window: {}", e);
         }
     }
 }
@@ -548,7 +548,12 @@ pub fn show_floating_result(
     text: &str,
     has_selection_context: bool,
 ) -> Result<(), String> {
-    emit_floating_result(app_handle, text, has_selection_context, false)
+    debug!("show_floating_result: text length={}", text.len());
+    let result = emit_floating_result(app_handle, text, has_selection_context, false);
+    if let Err(ref e) = result {
+        error!("show_floating_result failed: {}", e);
+    }
+    result
 }
 
 /// Show the floating window with raw transcription and a "processing" state.
