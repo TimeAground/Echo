@@ -612,7 +612,9 @@ fn emit_floating_result(
         .show()
         .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
 
-    let _ = window.set_focus();
+    // Deliberately skip set_focus() to avoid activating the main window
+    // on Windows. The floating window has always_on_top: true so it will
+    // be visually on top without needing explicit activation.
 
     let ready = floating_ready_store()
         .lock()
