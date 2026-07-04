@@ -11,6 +11,7 @@ use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{self, show_recording_overlay};
 use crate::TranscriptionCoordinator;
+use enigo::Keyboard;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
@@ -1055,16 +1056,20 @@ impl ShortcutAction for OpenFloatingWithSelectedTextAction {
         debug!("OpenFloatingWithSelectedTextAction started");
 
         // On Windows, the Alt key press activates the menu accelerator mode,
-        // which would prevent Ctrl+C from working in get_selected_text().
-        // Send Escape first to clear the menu state.
+        // which prevents Ctrl+C and other key events from working correctly.
+        // Worse, after the shortcut fires, Windows still thinks Alt is pressed,
+        // causing subsequent Z/X key presses to be interpreted as Alt+Z/Alt+X.
+        // We must explicitly release the Alt key to clear this state.
         #[cfg(target_os = "windows")]
         {
-            if let Some(state) = app.try_state::<crate::clipboard::EnigoState>() {
+            if let Some(state) = app.try_state::<crate::input::EnigoState>() {
                 if let Ok(mut enigo) = state.0.lock() {
-                    let _ = enigo.key(
-                        enigo::Key::Escape,
-                        enigo::Direction::Click,
-                    );
+                    // Release Alt key to clear Windows menu accelerator state.
+                    // This is critical — Escape alone does NOT reset the Alt state.
+                    let _ = enigo.key(enigo::Key::Alt, enigo::Direction::Release);
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                    // Then send Escape to dismiss any menu popup that appeared.
+                    let _ = enigo.key(enigo::Key::Escape, enigo::Direction::Click);
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
             }

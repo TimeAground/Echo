@@ -130,14 +130,12 @@ pub fn dismiss_windows_alt_menu(app_handle: &AppHandle) -> Result<(), String> {
             .lock()
             .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
 
-        // #region debug-point A:dismiss-windows-alt-menu
-        __dbg_report(
-            "A",
-            "src-tauri/src/clipboard.rs:dismiss_windows_alt_menu",
-            "Dismissing Windows Alt menu mode before paste",
-            serde_json::json!({}),
-        );
-        // #endregion
+        // Release Alt key to clear Windows menu accelerator state.
+        // Escape alone does NOT reset the Alt state — Windows still thinks
+        // Alt is pressed, causing subsequent key presses to be interpreted
+        // as Alt+ shortcuts.
+        let _ = enigo.key(enigo::Key::Alt, enigo::Direction::Release);
+        std::thread::sleep(Duration::from_millis(30));
         input::send_escape_key(&mut enigo)?;
         std::thread::sleep(Duration::from_millis(40));
     }
