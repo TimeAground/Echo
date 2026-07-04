@@ -1054,6 +1054,22 @@ impl ShortcutAction for OpenFloatingWithSelectedTextAction {
     fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
         debug!("OpenFloatingWithSelectedTextAction started");
 
+        // On Windows, the Alt key press activates the menu accelerator mode,
+        // which would prevent Ctrl+C from working in get_selected_text().
+        // Send Escape first to clear the menu state.
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(state) = app.try_state::<crate::clipboard::EnigoState>() {
+                if let Ok(mut enigo) = state.0.lock() {
+                    let _ = enigo.key(
+                        enigo::Key::Escape,
+                        enigo::Direction::Click,
+                    );
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+        }
+
         let selected = crate::clipboard::get_selected_text(app);
         let text = match selected {
             Some(ref t) if !t.trim().is_empty() => t.clone(),
@@ -1063,7 +1079,7 @@ impl ShortcutAction for OpenFloatingWithSelectedTextAction {
             }
         };
 
-        let _ = crate::utils::show_floating_processing(app, &text, false);
+        let _ = crate::utils::show_floating_result(app, &text, false);
     }
 
     fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
