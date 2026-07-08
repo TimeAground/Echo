@@ -97,16 +97,22 @@ body::before {
   min-height: 100vh;
   padding: 0;
   overflow: hidden;
+  background: #080a10;
 }
 
 .app-shell::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 8% 0%, rgba(123, 110, 246, 0.16), transparent 18%),
-    radial-gradient(circle at 100% 10%, rgba(94, 162, 255, 0.12), transparent 18%);
+    radial-gradient(circle at 8% 0%, rgba(123, 110, 246, 0.12), transparent 18%),
+    radial-gradient(circle at 100% 10%, rgba(94, 162, 255, 0.08), transparent 18%),
+    radial-gradient(circle at top right, rgba(123, 110, 246, 0.12), transparent 28%),
+    radial-gradient(circle at 0% 100%, rgba(94, 162, 255, 0.06), transparent 28%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, transparent 28%),
+    radial-gradient(circle at 100% 0%, rgba(94, 162, 255, 0.1), transparent 24%),
+    linear-gradient(90deg, transparent 0%, rgba(123, 110, 246, 0.03) 48%, transparent 100%);
 }
 
 .app-window {
@@ -116,25 +122,9 @@ body::before {
   min-height: 100vh;
   border-radius: 0;
   border: 0;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, transparent 28%),
-    radial-gradient(circle at top right, rgba(123, 110, 246, 0.16), transparent 28%),
-    radial-gradient(circle at 0% 100%, rgba(94, 162, 255, 0.09), transparent 28%),
-    linear-gradient(180deg, rgba(16, 18, 27, 0.96), rgba(8, 10, 16, 0.98));
   box-shadow: none;
   overflow: hidden;
   isolation: isolate;
-}
-
-.app-window::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(94, 162, 255, 0.14), transparent 24%),
-    linear-gradient(90deg, transparent 0%, rgba(123, 110, 246, 0.05) 48%, transparent 100%);
-  mix-blend-mode: screen;
 }
 
 .app-window-dot {
