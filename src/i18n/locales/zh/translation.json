@@ -562,6 +562,11 @@
     },
     "about": {
       "title": "关于",
+      "positioning": {
+        "title": "产品定位",
+        "description": "Echo 是什么",
+        "details": "Echo 是一款面向中文用户的离线优先语音输入工具，围绕 Alt+Q（本地转录）和 Alt+Z（AI 后处理）两条主链路设计。本地转录全程离线运行、免费使用；AI 后处理服务可选支持 OpenAI 兼容协议的提供商，需自行配置 API Key。"
+      },
       "version": {
         "title": "版本",
         "description": "Echo 的当前版本"
@@ -591,10 +596,34 @@
       },
       "acknowledgments": {
         "title": "致谢",
+        "senseVoice": {
+          "title": "SenseVoice",
+          "description": "本地中文语音识别引擎",
+          "details": "Echo 在中文语音识别场景中优先推荐并使用 SenseVoice。SenseVoice 由阿里通义实验室开源，支持中文、英语、日语、韩语、粤语等多种语言，具备极低的识别延迟和出色的中文识别准确率。感谢通义实验室的贡献。"
+        },
         "whisper": {
-          "title": "语音识别引擎",
-          "description": "Echo 当前主要面向中文场景优先提供 SenseVoice，也保留 Whisper.cpp 等本地识别引擎支持",
-          "details": "Echo 当前的本地识别能力以 SenseVoice 为主，同时兼容 Whisper.cpp 等语音识别引擎，用于覆盖不同语言与模型路线。感谢相关开源项目与贡献者提供的优秀基础能力。"
+          "title": "Whisper.cpp",
+          "description": "多语言本地语音识别引擎",
+          "details": "Echo 同时兼容 Whisper.cpp 等语音识别引擎，用于覆盖不同语言与模型路线。感谢相关开源项目与贡献者提供的优秀基础能力。"
+        },
+        "oss": {
+          "title": "开源依赖",
+          "description": "Echo 基于以下开源项目构建",
+          "expand": "展开全部（{{count}} 项）",
+          "collapse": "收起"
+        }
+      },
+      "privacy": {
+        "title": "隐私说明",
+        "local": {
+          "title": "本地转录",
+          "description": "语音数据处理方式",
+          "details": "使用 Alt+Q 进行语音转录时，录音和识别全在本地设备上完成，音频数据不会离开你的电脑。转录结果仅保存在本地历史记录中，你可以随时在设置中删除。"
+        },
+        "postProcess": {
+          "title": "AI 后处理",
+          "description": "AI 后处理中的数据发送",
+          "details": "使用 Alt+Z 进行 AI 后处理时，转录文本和模板提示词会被发送到你配置的 AI 服务提供商。选择国内提供商（如 DeepSeek、阿里百炼等）时数据不会出境。建议仔细阅读所选服务商的隐私政策，了解他们如何处理你的数据。"
         }
       }
     }

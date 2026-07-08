@@ -131,13 +131,11 @@ pub fn dismiss_windows_alt_menu(app_handle: &AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
 
         // Release Alt key to clear Windows menu accelerator state.
-        // Escape alone does NOT reset the Alt state — Windows still thinks
-        // Alt is pressed, causing subsequent key presses to be interpreted
-        // as Alt+ shortcuts.
+        // NOTE: We used to also send Escape here, but that closes chat windows
+        // in WeChat and other apps. Releasing Alt alone is sufficient — Windows
+        // will restore normal keyboard state once Alt is no longer held.
         let _ = enigo.key(enigo::Key::Alt, enigo::Direction::Release);
         std::thread::sleep(Duration::from_millis(30));
-        input::send_escape_key(&mut enigo)?;
-        std::thread::sleep(Duration::from_millis(40));
     }
 
     #[cfg(not(target_os = "windows"))]

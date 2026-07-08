@@ -562,6 +562,11 @@
     },
     "about": {
       "title": "About",
+      "positioning": {
+        "title": "Product Positioning",
+        "description": "What Echo is",
+        "details": "Echo is an offline-first voice input tool designed for Chinese-speaking users, built around two core workflows: Alt+Q (local transcription) and Alt+Z (AI post-processing). Local transcription runs entirely offline and is free to use. AI post-processing supports OpenAI-compatible providers and requires configuring an API key."
+      },
       "version": {
         "title": "Version",
         "description": "Current version of Echo"
@@ -591,10 +596,34 @@
       },
       "acknowledgments": {
         "title": "Acknowledgments",
+        "senseVoice": {
+          "title": "SenseVoice",
+          "description": "Local Chinese speech recognition engine",
+          "details": "Echo prioritizes and recommends SenseVoice for Chinese-first speech recognition scenarios. SenseVoice is open-sourced by Alibaba Tongyi Lab, supporting Chinese, English, Japanese, Korean, Cantonese, and more, with extremely low latency and excellent Chinese recognition accuracy. Thanks to Tongyi Lab for their contribution."
+        },
         "whisper": {
-          "title": "Speech Recognition Engines",
-          "description": "Echo currently prioritizes SenseVoice for Chinese-first usage while retaining support for Whisper.cpp and other local recognition engines",
-          "details": "Echo currently relies primarily on SenseVoice for its local Chinese-first speech recognition experience, while remaining compatible with Whisper.cpp and other recognition engines for broader language and model coverage. Thanks to the open-source projects and contributors behind these capabilities."
+          "title": "Whisper.cpp",
+          "description": "Multilingual local speech recognition engine",
+          "details": "Echo also supports Whisper.cpp and other speech recognition engines for broader language and model coverage. Thanks to the open-source projects and contributors behind these capabilities."
+        },
+        "oss": {
+          "title": "Open Source Dependencies",
+          "description": "Echo is built on these open source projects",
+          "expand": "Show all ({{count}})",
+          "collapse": "Collapse"
+        }
+      },
+      "privacy": {
+        "title": "Privacy",
+        "local": {
+          "title": "Local Transcription",
+          "description": "How voice data is processed",
+          "details": "When using Alt+Q for voice transcription, recording and recognition are processed entirely on your local device. Audio data never leaves your computer. Transcription results are saved in local history and can be deleted at any time."
+        },
+        "postProcess": {
+          "title": "AI Post-Processing",
+          "description": "Data transmission during AI post-processing",
+          "details": "When using Alt+Z for AI post-processing, transcribed text and prompt templates are sent to your configured AI service provider. Choosing a domestic provider (e.g., DeepSeek, Alibaba Bailian) keeps data within your region. We recommend reviewing your provider's privacy policy to understand how they handle your data."
         }
       }
     }

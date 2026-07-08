@@ -1065,12 +1065,10 @@ impl ShortcutAction for OpenFloatingWithSelectedTextAction {
             if let Some(state) = app.try_state::<crate::input::EnigoState>() {
                 if let Ok(mut enigo) = state.0.lock() {
                     // Release Alt key to clear Windows menu accelerator state.
-                    // This is critical — Escape alone does NOT reset the Alt state.
+                    // NOTE: We used to also send Escape here, but that closes chat windows
+                    // in WeChat and other apps. Releasing Alt alone is sufficient.
                     let _ = enigo.key(enigo::Key::Alt, enigo::Direction::Release);
                     std::thread::sleep(std::time::Duration::from_millis(30));
-                    // Then send Escape to dismiss any menu popup that appeared.
-                    let _ = enigo.key(enigo::Key::Escape, enigo::Direction::Click);
-                    std::thread::sleep(std::time::Duration::from_millis(50));
                 }
             }
         }
