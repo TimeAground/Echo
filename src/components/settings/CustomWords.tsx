@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { useSettings } from "../../hooks/useSettings";
-import { Input } from "../ui/Input";
-import { Button } from "../ui/Button";
 import { SettingContainer } from "../ui/SettingContainer";
+import { DictionaryManager } from "./DictionaryManager";
 
 interface CustomWordsProps {
   descriptionMode?: "inline" | "tooltip";
@@ -14,44 +12,9 @@ interface CustomWordsProps {
 export const CustomWords: React.FC<CustomWordsProps> = React.memo(
   ({ descriptionMode = "tooltip", grouped = false }) => {
     const { t } = useTranslation();
-    const { getSetting, updateSetting, isUpdating } = useSettings();
-    const [newWord, setNewWord] = useState("");
-    const customWords = getSetting("custom_words") || [];
-
-    const handleAddWord = () => {
-      const trimmedWord = newWord.trim();
-      const sanitizedWord = trimmedWord.replace(/[<>"'&]/g, "");
-      if (
-        sanitizedWord &&
-        !sanitizedWord.includes(" ") &&
-        sanitizedWord.length <= 50
-      ) {
-        if (customWords.includes(sanitizedWord)) {
-          toast.error(
-            t("settings.advanced.customWords.duplicate", {
-              word: sanitizedWord,
-            }),
-          );
-          return;
-        }
-        updateSetting("custom_words", [...customWords, sanitizedWord]);
-        setNewWord("");
-      }
-    };
-
-    const handleRemoveWord = (wordToRemove: string) => {
-      updateSetting(
-        "custom_words",
-        customWords.filter((word) => word !== wordToRemove),
-      );
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddWord();
-      }
-    };
+    const { getSetting } = useSettings();
+    const [showManager, setShowManager] = useState(false);
+    const wordCount = (getSetting("custom_words") || []).length;
 
     return (
       <>
@@ -61,64 +24,19 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
           descriptionMode={descriptionMode}
           grouped={grouped}
         >
-          <div className="flex w-full items-center justify-end gap-2">
-            <Input
-              type="text"
-              className="w-full max-w-56"
-              value={newWord}
-              onChange={(e) => setNewWord(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder={t("settings.advanced.customWords.placeholder")}
-              variant="compact"
-              disabled={isUpdating("custom_words")}
-            />
-            <Button
-              onClick={handleAddWord}
-              disabled={
-                !newWord.trim() ||
-                newWord.includes(" ") ||
-                newWord.trim().length > 50 ||
-                isUpdating("custom_words")
-              }
-              variant="primary"
-              size="md"
-              className="shrink-0 whitespace-nowrap"
-            >
-              {t("settings.advanced.customWords.add")}
-            </Button>
-          </div>
-        </SettingContainer>
-        {customWords.length > 0 && (
-          <div
-            className={`px-4 p-2 ${grouped ? "" : "rounded-lg border border-mid-gray/20"} flex flex-wrap gap-1`}
+          <button
+            onClick={() => setShowManager(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#8a7dff]/25 bg-[#8a7dff]/12 px-4 py-2 text-[13px] font-medium text-[#c4bfff] transition-colors hover:bg-[#8a7dff]/20 cursor-pointer whitespace-nowrap"
           >
-            {customWords.map((word) => (
-              <Button
-                key={word}
-                onClick={() => handleRemoveWord(word)}
-                disabled={isUpdating("custom_words")}
-                variant="secondary"
-                size="sm"
-                className="inline-flex items-center gap-1 cursor-pointer"
-                aria-label={t("settings.advanced.customWords.remove", { word })}
-              >
-                <span>{word}</span>
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </Button>
-            ))}
-          </div>
+            {t("common.manage") || "管理"}
+            {wordCount > 0 ? ` (${wordCount})` : ""}
+          </button>
+        </SettingContainer>
+
+        {showManager && (
+          <DictionaryManager
+            onClose={() => setShowManager(false)}
+          />
         )}
       </>
     );

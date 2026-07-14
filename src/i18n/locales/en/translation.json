@@ -665,7 +665,10 @@
     "off": "Off",
     "yes": "Yes",
     "no": "No",
-    "noOptionsFound": "No options found"
+    "noOptionsFound": "No options found",
+    "manage": "Manage",
+    "import": "Import",
+    "export": "Export"
   },
   "accessibility": {
     "permissionsRequired": "Accessibility Permissions Required",

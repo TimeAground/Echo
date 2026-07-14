@@ -20,6 +20,7 @@ export { HandyKeysShortcutInput } from "./HandyKeysShortcutInput";
 export { ShortcutInput } from "./ShortcutInput";
 export { TranslateToEnglish } from "./TranslateToEnglish";
 export { CustomWords } from "./CustomWords";
+export { DictionaryManager } from "./DictionaryManager";
 export { PostProcessingSettingsApi } from "./PostProcessingSettingsApi";
 export { AppDataDirectory } from "./AppDataDirectory";
 export { ModelUnloadTimeoutSetting } from "./ModelUnloadTimeout";

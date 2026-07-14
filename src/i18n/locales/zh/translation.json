@@ -665,7 +665,12 @@
     "off": "关",
     "yes": "是",
     "no": "否",
-    "noOptionsFound": "未找到选项"
+    "import": "导入",
+  "export": "导出",
+  "noOptionsFound": "未找到选项",
+    "manage": "管理",
+    "import": "导入",
+    "export": "导出"
   },
   "accessibility": {
     "permissionsRequired": "需要辅助功能权限",
