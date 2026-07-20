@@ -1,12 +1,11 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  Bot,
   LoaderCircle,
   Mic,
   SendHorizontal,
@@ -165,24 +164,53 @@ const renderMarkdown = (content: string) => (
   </ReactMarkdown>
 );
 
-const AssistantMessageCard = ({
-  title,
-  children,
+/** Toolbar icon button with tooltip */
+const ToolbarBtn = ({
+  icon,
+  tooltip,
+  onClick,
+  active,
+  className = "",
 }: {
-  title: string;
-  children: React.ReactNode;
+  icon: React.ReactNode;
+  tooltip: string;
+  onClick?: () => void;
+  active?: boolean;
+  className?: string;
 }) => (
-  <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(15,18,31,0.94),rgba(10,13,22,0.98))] px-4 py-4 text-white/88 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-    <div className="mb-3 flex items-center gap-2">
-      <div className="flex h-7 w-7 items-center justify-center rounded-xl border border-[#8a7dff]/20 bg-[linear-gradient(135deg,rgba(123,110,246,0.28),rgba(94,162,255,0.18))] text-[#d8ddff]">
-        <Bot className="h-3.5 w-3.5" />
-      </div>
-      <div className="text-[12px] font-medium tracking-[0.08em] text-white/54">
-        {title}
-      </div>
+  <div className="group relative">
+    <button
+      onClick={onClick}
+      className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
+        active
+          ? "text-[#9a8eff] bg-[#7b6ef6]/12"
+          : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
+      } ${className}`}
+    >
+      {icon}
+    </button>
+    <div className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1e2030] px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100">
+      {tooltip}
     </div>
-    <div className="space-y-3 text-[14px] leading-7">{children}</div>
   </div>
+);
+
+/** 新对话 icon — rounded square frame with a diagonal pen stroke */
+const NewChatIcon = () => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
+    <path d="M8 16l2-6 6-2-2 6-6 2z" />
+    <path d="M10 10l4 4" />
+  </svg>
 );
 
 const isLikelyQuestion = (value: string) => {
@@ -240,13 +268,13 @@ const FloatingWindow: React.FC = () => {
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [isVoiceTranscribing, setIsVoiceTranscribing] = useState(false);
+  const [isPinned, setIsPinned] = useState(true);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const lastExternalTextRef = useRef("");
 
   const hydrateFromExternalResult = useCallback(
     (nextText: string, nextHasSelectionContext: boolean) => {
-      // #region debug-point C:hydrate-external-result
       void __dbgReport(
         "C",
         "src/floating/FloatingWindow.tsx:hydrateFromExternalResult",
@@ -257,7 +285,6 @@ const FloatingWindow: React.FC = () => {
           hasSelectionContext: nextHasSelectionContext,
         },
       );
-      // #endregion
       setText(nextText);
       setHasSelectionContext(nextHasSelectionContext);
       setConversation(buildInitialConversation(nextText));
@@ -281,6 +308,27 @@ const FloatingWindow: React.FC = () => {
     }
     await invoke("close_floating_window");
   }, [isVoiceRecording, isVoiceTranscribing]);
+
+  const newConversation = useCallback(() => {
+    setText("");
+    setConversation([]);
+    setFollowUpInput("");
+    setActionError("");
+    setInfoMessage("");
+    setIsProcessing(false);
+    lastExternalTextRef.current = "";
+  }, []);
+
+  const togglePin = useCallback(async () => {
+    const next = !isPinned;
+    setIsPinned(next);
+    try {
+      const win = getCurrentWindow();
+      await win.setAlwaysOnTop(next);
+    } catch {
+      // ignore
+    }
+  }, [isPinned]);
 
   const syncText = useCallback(async () => {
     try {
@@ -356,7 +404,6 @@ const FloatingWindow: React.FC = () => {
       ]);
 
       try {
-        // #region debug-point C:followup-invoke-enter
         void __dbgReport(
           "C",
           "src/floating/FloatingWindow.tsx:runFollowUp:enter",
@@ -368,12 +415,10 @@ const FloatingWindow: React.FC = () => {
             currentTextPreview: text.trim().slice(0, 120),
           },
         );
-        // #endregion
         const result = await invoke<string>("run_floating_follow_up", {
           instruction,
         });
         const nextText = result || "";
-        // #region debug-point C:followup-invoke-ok
         void __dbgReport(
           "C",
           "src/floating/FloatingWindow.tsx:runFollowUp:ok",
@@ -383,7 +428,6 @@ const FloatingWindow: React.FC = () => {
             resultPreview: nextText.slice(0, 120),
           },
         );
-        // #endregion
         setText(nextText);
         lastExternalTextRef.current = nextText;
         setConversation((previous) =>
@@ -401,7 +445,6 @@ const FloatingWindow: React.FC = () => {
           setFollowUpInput("");
         }
       } catch (error) {
-        // #region debug-point C:followup-invoke-error
         void __dbgReport(
           "C",
           "src/floating/FloatingWindow.tsx:runFollowUp:error",
@@ -415,7 +458,6 @@ const FloatingWindow: React.FC = () => {
                   : String(error),
           },
         );
-        // #endregion
         setConversation((previous) =>
           previous.filter((item) => item.id !== pendingMessageId),
         );
@@ -497,7 +539,6 @@ const FloatingWindow: React.FC = () => {
 
     const unlistenResult = listen<AiResultEvent>("ai-result", (event) => {
       const payload = event.payload;
-      // #region debug-point C:ai-result-event
       void __dbgReport(
         "C",
         "src/floating/FloatingWindow.tsx:ai-result",
@@ -509,10 +550,8 @@ const FloatingWindow: React.FC = () => {
           processing: Boolean(payload.processing),
         },
       );
-      // #endregion
 
       if (payload.processing) {
-        // Show raw transcription with processing state (方案 A)
         setText(payload.text || "");
         setHasSelectionContext(Boolean(payload.hasSelectionContext));
         setConversation(buildInitialConversation(payload.text || ""));
@@ -560,120 +599,79 @@ const FloatingWindow: React.FC = () => {
     });
   }, [conversation, isProcessing]);
 
-  const subtitle = useMemo(
-    () =>
-      hasSelectionContext
-        ? t("floating.subtitleSelection")
-        : t("floating.subtitleResult"),
-    [hasSelectionContext, t],
-  );
-
-  const helperText = useMemo(
-    () =>
-      hasSelectionContext
-        ? t("floating.inputHelperSelection")
-        : t("floating.inputHelper"),
-    [hasSelectionContext, t],
-  );
-
   const hasContent = conversation.length > 0;
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(123,110,246,0.18),transparent_42%),linear-gradient(180deg,rgba(16,19,33,0.97),rgba(8,11,20,0.99))] text-white shadow-[0_28px_80px_rgba(0,0,0,0.52)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(123,110,246,0.16),transparent_30%),radial-gradient(circle_at_left_bottom,rgba(94,162,255,0.1),transparent_24%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(138,125,255,0.45),transparent)]" />
-
-      <div className="relative shrink-0 px-4 pt-4 select-none">
-        <div
-          data-tauri-drag-region
-          className="flex cursor-move items-center justify-between gap-3 rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-3"
-          onMouseDown={(event) => {
-            // #region debug-point E:drag-header-mousedown
-            void __dbgReport(
-              "E",
-              "src/floating/FloatingWindow.tsx:header:onMouseDown",
-              "Floating header received mouse down",
-              {
-                button: event.button,
-              },
-            );
-            // #endregion
-          }}
-        >
-          <div className="pointer-events-none flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#8a7dff]/25 bg-[linear-gradient(135deg,rgba(123,110,246,0.34),rgba(94,162,255,0.22))] text-[#d8ddff]">
-              <Bot className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold tracking-[0.04em] text-white/92">
-                {t("floating.title")}
-              </div>
-              <div className="text-[12px] text-white/42">{subtitle}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={close}
-              onMouseDown={(event) => event.stopPropagation()}
-              className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/68 transition-colors hover:border-red-300/20 hover:bg-red-400/12 hover:text-red-100"
-              title={t("common.close")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+    <div className="group relative flex h-screen w-screen flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#12141e] text-white shadow-[0_28px_80px_rgba(0,0,0,0.52)]">
+      {/* Toolbar */}
+      <div
+        data-tauri-drag-region
+        className="relative flex shrink-0 cursor-move items-center justify-between px-3 py-2.5 select-none"
+      >
+        <div className="flex items-center gap-0.5">
+          <ToolbarBtn
+            icon={<NewChatIcon />}
+            tooltip="新对话"
+            onClick={newConversation}
+          />
+        </div>
+        <div className="flex items-center gap-0.5">
+          <ToolbarBtn
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 17V3" />
+                <path d="M6 21h12" />
+                <path d="M6 11l6 6 6-6" />
+              </svg>
+            }
+            tooltip="置顶"
+            active={isPinned}
+            onClick={togglePin}
+          />
+          <div className="mx-1.5 h-5 w-px bg-white/[0.06]" />
+          <button
+            onClick={close}
+            className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-white/45 transition-colors hover:text-white/80 hover:bg-white/[0.06]"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      <div ref={contentRef} className="relative flex-1 overflow-y-auto px-4 py-4">
-        <div className="space-y-4">
+      {/* Messages */}
+      <div ref={contentRef} className="relative flex-1 overflow-y-auto px-4 py-2">
+        <div className="flex flex-col gap-3">
           {!hasContent ? (
-            <AssistantMessageCard title={t("floating.result")}>
-              <div className="text-[14px] leading-8 text-white/40">
-                {t("floating.empty")}
-              </div>
-            </AssistantMessageCard>
+            <div className="flex flex-1 items-center justify-center py-16">
+              <div className="text-[13px] text-white/25">{t("floating.empty")}</div>
+            </div>
           ) : null}
 
           {conversation.map((item) => {
-            if (item.role === "assistant" && item.variant === "result") {
+            if (item.role === "assistant") {
               return (
-                <AssistantMessageCard key={item.id} title={t("floating.result")}>
-                  <div className="text-[14px] leading-8 text-white/88">
-                    {renderMarkdown(item.content)}
-                  </div>
-                </AssistantMessageCard>
-              );
-            }
-
-            if (item.role === "user") {
-              return (
-                <div key={item.id} className="ml-auto max-w-[80%]">
-                  <div className="rounded-[22px] border border-[#7b6ef6]/18 bg-[linear-gradient(135deg,rgba(123,110,246,0.18),rgba(78,123,255,0.08))] px-4 py-3 text-[#dde3ff]">
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-white/34">
-                      {t("floating.you")}
+                <div key={item.id} className="max-w-[90%]">
+                  {item.pending ? (
+                    <div className="inline-flex items-center gap-2 rounded-2xl bg-[#1e2030] px-4 py-3 text-[13px] text-white/56">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      {t("floating.processing")}
                     </div>
-                    <div className="text-[13px] leading-7">{item.content}</div>
-                  </div>
+                  ) : (
+                    <div className="rounded-2xl bg-[#1e2030] px-4 py-3 text-[14px] leading-7 text-white/88">
+                      {renderMarkdown(item.content)}
+                    </div>
+                  )}
                 </div>
               );
             }
 
+            // User message
             return (
-              <AssistantMessageCard
-                key={item.id}
-                title={t("floating.followUpTitle")}
-              >
-                {item.pending ? (
-                  <div className="inline-flex items-center gap-2 text-[13px] text-white/56">
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    {t("floating.processing")}
-                  </div>
-                ) : (
-                  <div className="text-[14px] leading-7 text-white/84">
-                    {renderMarkdown(item.content)}
-                  </div>
-                )}
-              </AssistantMessageCard>
+              <div key={item.id} className="ml-auto max-w-[80%]">
+                <div className="rounded-2xl rounded-br-[6px] bg-gradient-to-br from-[#5b5ef7] to-[#6b7aff] px-4 py-3 text-[13px] leading-7 text-white shadow-sm">
+                  {item.content}
+                </div>
+              </div>
             );
           })}
 
@@ -691,29 +689,29 @@ const FloatingWindow: React.FC = () => {
         </div>
       </div>
 
-      <div className="relative shrink-0 border-t border-white/8 px-4 py-4">
-        <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-3 py-3">
-          <div className="flex items-end gap-3">
-            <button
-              type="button"
-              onClick={toggleVoiceRecording}
-              disabled={isProcessing || isVoiceTranscribing}
-              className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-colors ${
-                isVoiceRecording
-                  ? "cursor-pointer border-red-300/18 bg-[linear-gradient(135deg,rgba(255,78,125,0.34),rgba(255,117,166,0.16))] text-[#ffe3ec] hover:border-red-300/26 hover:bg-[linear-gradient(135deg,rgba(255,78,125,0.42),rgba(255,117,166,0.22))]"
-                  : "cursor-pointer border-[#75b4ff]/18 bg-[linear-gradient(135deg,rgba(54,116,255,0.32),rgba(82,157,255,0.14))] text-[#dce7ff] hover:border-[#9ccaff]/24 hover:bg-[linear-gradient(135deg,rgba(54,116,255,0.4),rgba(82,157,255,0.2))]"
-              } disabled:cursor-default disabled:border-white/8 disabled:bg-white/[0.04] disabled:text-white/30`}
-              title={t("floating.voiceInput")}
-            >
-              {isVoiceTranscribing ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : isVoiceRecording ? (
-                <Square className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </button>
+      {/* Input */}
+      <div className="relative shrink-0 border-t border-white/6 px-4 py-3">
+        <div className="flex items-end gap-2.5">
+          <button
+            type="button"
+            onClick={toggleVoiceRecording}
+            disabled={isProcessing || isVoiceTranscribing}
+            className={`relative shrink-0 rounded-xl p-2.5 transition-colors ${
+              isVoiceRecording
+                ? "bg-[#ff4e7d]/20 text-[#ff8aac]"
+                : "bg-[#5b5ef7]/15 text-[#9ca3ff] hover:bg-[#5b5ef7]/22"
+            } disabled:opacity-30`}
+          >
+            {isVoiceTranscribing ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : isVoiceRecording ? (
+              <Square className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+          </button>
 
+          <div className="relative flex-1">
             <textarea
               ref={inputRef}
               value={followUpInput}
@@ -725,35 +723,30 @@ const FloatingWindow: React.FC = () => {
                 }
               }}
               disabled={isProcessing || isVoiceTranscribing}
-              placeholder={t("floating.followUpPlaceholder")}
+              placeholder="输入指令…"
               rows={1}
-              className="max-h-32 min-h-[44px] flex-1 resize-none rounded-[20px] border border-white/8 bg-[#090d16]/78 px-4 py-3 text-[13px] leading-6 text-white/88 outline-none transition-colors placeholder:text-white/24 focus:border-[#8a7dff]/32"
+              className="max-h-24 min-h-[40px] w-full resize-none rounded-2xl border border-white/8 bg-[#1e2030] px-4 py-2.5 text-[13px] leading-6 text-white/88 outline-none transition-colors placeholder:text-white/22 focus:border-[#7b6ef6]/35"
             />
-
-            <button
-              type="button"
-              onClick={() => void runFollowUp(followUpInput, true)}
-              disabled={
-                !text.trim() ||
-                !followUpInput.trim() ||
-                isProcessing ||
-                isVoiceRecording ||
-                isVoiceTranscribing
-              }
-              className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-[#8a7dff]/22 bg-[linear-gradient(135deg,rgba(123,110,246,0.94),rgba(94,162,255,0.78))] text-white shadow-[0_12px_32px_rgba(123,110,246,0.28)] transition-opacity hover:opacity-95 disabled:cursor-default disabled:border-white/8 disabled:bg-white/[0.05] disabled:text-white/28 disabled:shadow-none"
-              title={t("floating.send")}
-            >
-              {isProcessing ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <SendHorizontal className="h-4 w-4" />
-              )}
-            </button>
           </div>
 
-          <div className="mt-2 px-1 text-[11px] text-white/34">
-            {helperText}
-          </div>
+          <button
+            type="button"
+            onClick={() => void runFollowUp(followUpInput, true)}
+            disabled={
+              !text.trim() ||
+              !followUpInput.trim() ||
+              isProcessing ||
+              isVoiceRecording ||
+              isVoiceTranscribing
+            }
+            className="flex shrink-0 cursor-pointer items-center justify-center rounded-xl bg-gradient-to-br from-[#5b5ef7] to-[#7b6aff] p-2.5 text-white shadow-[0_4px_16px_rgba(91,94,247,0.22)] transition-opacity hover:opacity-92 disabled:opacity-25 disabled:cursor-default disabled:shadow-none"
+          >
+            {isProcessing ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <SendHorizontal className="h-4 w-4" />
+            )}
+          </button>
         </div>
       </div>
     </div>
