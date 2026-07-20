@@ -343,6 +343,11 @@ pub fn show_recording_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "recording");
 }
 
+/// Shows the recording overlay with a loading spinner while the mic is initializing
+pub fn show_initializing_overlay(app_handle: &AppHandle) {
+    show_overlay_state(app_handle, "initializing");
+}
+
 /// Shows the transcribing overlay window
 pub fn show_transcribing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "transcribing");

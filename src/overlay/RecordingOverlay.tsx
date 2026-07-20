@@ -2,13 +2,14 @@ import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useRef, useState } from "react";
 import "./RecordingOverlay.css";
 
-type OverlayState = "recording";
+type OverlayState = "recording" | "initializing";
 
 const RecordingOverlay: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
-  const [_state, setState] = useState<OverlayState>("recording");
+  const [state, setState] = useState<OverlayState>("initializing");
   const [levels, setLevels] = useState<number[]>(Array(12).fill(0.18));
   const smoothedLevelsRef = useRef<number[]>(Array(12).fill(0.18));
+  const hasReceivedLevelAfterShow = useRef(false);
 
   useEffect(() => {
     const setupEventListeners = async () => {
@@ -16,13 +17,22 @@ const RecordingOverlay: React.FC = () => {
         const overlayState = event.payload as OverlayState;
         setState(overlayState);
         setIsVisible(true);
+        // Reset the level-received flag so we can detect the first level after show
+        hasReceivedLevelAfterShow.current = false;
       });
 
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
+        hasReceivedLevelAfterShow.current = false;
       });
 
       const unlistenLevel = await listen<number[]>("mic-level", (event) => {
+        // If currently in initializing state, first level data means mic is ready
+        if (!hasReceivedLevelAfterShow.current) {
+          hasReceivedLevelAfterShow.current = true;
+          setState("recording");
+        }
+
         const newLevels = event.payload as number[];
         const centered = Array.from({ length: 12 }, (_, index) => {
           const sourceIndex = Math.min(newLevels.length - 1, Math.floor(index / 1.35));
@@ -58,19 +68,25 @@ const RecordingOverlay: React.FC = () => {
         <div className="overlay-pulse pulse-secondary" />
         <div className="overlay-core-glow" />
         <div className="overlay-track" />
-        <div className="overlay-waveform" aria-hidden="true">
-          {levels.map((v, i) => (
-            <div
-              key={i}
-              className="bar"
-              style={{
-                height: `${Math.min(30, 6 + Math.pow(v, 0.76) * 24)}px`,
-                transition: "height 60ms ease-out, opacity 120ms ease-out",
-                opacity: Math.max(0.28, v * 1.9),
-              }}
-            />
-          ))}
-        </div>
+        {state === "initializing" ? (
+          <div className="overlay-spinner" aria-hidden="true">
+            <div className="spinner-ring" />
+          </div>
+        ) : (
+          <div className="overlay-waveform" aria-hidden="true">
+            {levels.map((v, i) => (
+              <div
+                key={i}
+                className="bar"
+                style={{
+                  height: `${Math.min(30, 6 + Math.pow(v, 0.76) * 24)}px`,
+                  transition: "height 60ms ease-out, opacity 120ms ease-out",
+                  opacity: Math.max(0.28, v * 1.9),
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

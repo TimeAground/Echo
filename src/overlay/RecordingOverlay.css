@@ -87,6 +87,31 @@
   pointer-events: none;
 }
 
+.overlay-spinner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  width: 32px;
+}
+
+.spinner-ring {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(138, 162, 255, 0.12);
+  border-top-color: rgba(138, 162, 255, 0.72);
+  border-radius: 50%;
+  animation: spinnerRotate 0.9s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .overlay-waveform {
   position: relative;
   z-index: 1;

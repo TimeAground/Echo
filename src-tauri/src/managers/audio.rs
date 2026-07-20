@@ -120,7 +120,7 @@ fn create_audio_recorder(
 ) -> Result<AudioRecorder, anyhow::Error> {
     let silero = SileroVad::new(vad_path, 0.3)
         .map_err(|e| anyhow::anyhow!("Failed to create SileroVad: {}", e))?;
-    let smoothed_vad = SmoothedVad::new(Box::new(silero), 15, 15, 2);
+    let smoothed_vad = SmoothedVad::new(Box::new(silero), 15, 15, 1);
 
     // Recorder with VAD plus a spectrum-level callback that forwards updates to
     // the frontend.
@@ -425,9 +425,15 @@ impl AudioRecordingManager {
 
                 *self.is_recording.lock().unwrap() = false;
 
-                // In on-demand mode, close the mic immediately after recording stops.
+                // In on-demand mode, delay close the mic so the next recording starts instantly.
                 if matches!(*self.mode.lock().unwrap(), MicrophoneMode::OnDemand) {
-                    self.stop_microphone_stream();
+                    let rm = self.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(Duration::from_secs(120));
+                        if !rm.is_recording() {
+                            rm.stop_microphone_stream();
+                        }
+                    });
                 }
 
                 // Pad if very short
@@ -444,6 +450,11 @@ impl AudioRecordingManager {
             _ => None,
         }
     }
+    /// Check if the microphone stream is currently open
+    pub fn is_stream_open(&self) -> bool {
+        *self.is_open.lock().unwrap()
+    }
+
     pub fn is_recording(&self) -> bool {
         matches!(
             *self.state.lock().unwrap(),

@@ -9,7 +9,7 @@ use crate::secrets;
 use crate::settings::{get_settings, AppSettings, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
-use crate::utils::{self, show_recording_overlay};
+use crate::utils::{self, show_initializing_overlay, show_recording_overlay};
 use crate::TranscriptionCoordinator;
 use enigo::Keyboard;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
@@ -653,7 +653,12 @@ impl ShortcutAction for TranscribeAction {
 
         let binding_id = binding_id.to_string();
         change_tray_icon(app, TrayIconState::Recording);
-        show_recording_overlay(app);
+        // Show loading spinner if mic needs to open, otherwise show waveform directly
+        if rm.is_stream_open() {
+            show_recording_overlay(app);
+        } else {
+            show_initializing_overlay(app);
+        }
         utils::hide_floating_window(app);
 
         // Get the microphone mode to determine audio feedback timing
