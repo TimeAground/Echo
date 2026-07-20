@@ -467,11 +467,11 @@ pub fn create_floating_window(app_handle: &AppHandle) {
     .closable(false)
     .accept_first_mouse(true)
     .decorations(false)
-    .always_on_top(true)
     .skip_taskbar(true)
     .transparent(true)
     .focused(false)
     .visible(false);
+    // always_on_top is controlled by the frontend toggle button
 
     if let Some((x, y)) = position {
         builder = builder.position(x, y);
@@ -613,13 +613,13 @@ fn emit_floating_result(
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
     }
 
+    // Set always-on-top so the window appears above other windows.
+    // The user can toggle this off via the pin button in the toolbar.
+    let _ = window.set_always_on_top(true);
+
     window
         .show()
         .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
-
-    // Deliberately skip set_focus() to avoid activating the main window
-    // on Windows. The floating window has always_on_top: true so it will
-    // be visually on top without needing explicit activation.
 
     let ready = floating_ready_store()
         .lock()

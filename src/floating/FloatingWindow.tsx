@@ -8,9 +8,9 @@ import remarkGfm from "remark-gfm";
 import {
   LoaderCircle,
   Mic,
+  Pin,
   SendHorizontal,
   Square,
-  X,
 } from "lucide-react";
 
 // #region debug-point A:floating-runtime-issues
@@ -164,7 +164,7 @@ const renderMarkdown = (content: string) => (
   </ReactMarkdown>
 );
 
-/** Toolbar icon button with tooltip */
+/** Toolbar icon button with native tooltip */
 const ToolbarBtn = ({
   icon,
   tooltip,
@@ -178,40 +178,20 @@ const ToolbarBtn = ({
   active?: boolean;
   className?: string;
 }) => (
-  <div className="group relative">
-    <button
-      onClick={onClick}
-      className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
-        active
-          ? "text-[#9a8eff] bg-[#7b6ef6]/12"
-          : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
-      } ${className}`}
-    >
-      {icon}
-    </button>
-    <div className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1e2030] px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100">
-      {tooltip}
-    </div>
-  </div>
+  <button
+    title={tooltip}
+    onClick={onClick}
+    className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
+      active
+        ? "text-[#9a8eff] bg-[#7b6ef6]/12"
+        : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
+    } ${className}`}
+  >
+    {icon}
+  </button>
 );
 
-/** 新对话 icon — rounded square frame with a diagonal pen stroke */
-const NewChatIcon = () => (
-  <svg
-    width="17"
-    height="17"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
-    <path d="M8 16l2-6 6-2-2 6-6 2z" />
-    <path d="M10 10l4 4" />
-  </svg>
-);
+
 
 const isLikelyQuestion = (value: string) => {
   if (/[?？]$/.test(value)) {
@@ -308,16 +288,6 @@ const FloatingWindow: React.FC = () => {
     }
     await invoke("close_floating_window");
   }, [isVoiceRecording, isVoiceTranscribing]);
-
-  const newConversation = useCallback(() => {
-    setText("");
-    setConversation([]);
-    setFollowUpInput("");
-    setActionError("");
-    setInfoMessage("");
-    setIsProcessing(false);
-    lastExternalTextRef.current = "";
-  }, []);
 
   const togglePin = useCallback(async () => {
     const next = !isPinned;
@@ -441,9 +411,6 @@ const FloatingWindow: React.FC = () => {
               : item,
           ),
         );
-        if (shouldClearInput) {
-          setFollowUpInput("");
-        }
       } catch (error) {
         void __dbgReport(
           "C",
@@ -463,6 +430,9 @@ const FloatingWindow: React.FC = () => {
         );
         setActionError(resolveFollowUpError(error));
       } finally {
+        if (shouldClearInput) {
+          setFollowUpInput("");
+        }
         setIsProcessing(false);
       }
     },
@@ -602,40 +572,37 @@ const FloatingWindow: React.FC = () => {
   const hasContent = conversation.length > 0;
 
   return (
-    <div className="group relative flex h-screen w-screen flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#12141e] text-white shadow-[0_28px_80px_rgba(0,0,0,0.52)]">
+    <div className="flex h-screen w-screen flex-col bg-[#12141e] text-white">
       {/* Toolbar */}
       <div
         data-tauri-drag-region
-        className="relative flex shrink-0 cursor-move items-center justify-between px-3 py-2.5 select-none"
+        className="relative flex shrink-0 cursor-move items-center justify-end gap-1.5 px-3 py-2.5 select-none"
       >
-        <div className="flex items-center gap-0.5">
-          <ToolbarBtn
-            icon={<NewChatIcon />}
-            tooltip="新对话"
-            onClick={newConversation}
-          />
-        </div>
-        <div className="flex items-center gap-0.5">
-          <ToolbarBtn
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 17V3" />
-                <path d="M6 21h12" />
-                <path d="M6 11l6 6 6-6" />
-              </svg>
-            }
-            tooltip="置顶"
-            active={isPinned}
-            onClick={togglePin}
-          />
-          <div className="mx-1.5 h-5 w-px bg-white/[0.06]" />
+        <div className="group relative">
           <button
-            onClick={close}
-            className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-white/45 transition-colors hover:text-white/80 hover:bg-white/[0.06]"
+            title="始终置顶"
+            onClick={togglePin}
+            className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
+              isPinned
+                ? "text-[#9a8eff] bg-[#7b6ef6]/12"
+                : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
+            }`}
           >
-            <X className="h-4 w-4" />
+            <Pin className="h-4 w-4" />
           </button>
+          <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1e1e2e] px-3 py-1.5 text-[12px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+            始终置顶
+          </div>
         </div>
+        <div className="mx-0.5 h-5 w-px bg-white/[0.06]" />
+        <button
+          onClick={close}
+          className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-white/45 transition-colors hover:text-white/80 hover:bg-white/[0.06]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="6" y1="12" x2="18" y2="12" />
+          </svg>
+        </button>
       </div>
 
       {/* Messages */}
