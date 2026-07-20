@@ -385,6 +385,7 @@ pub fn run(cli_args: CliArgs) {
             commands::get_floating_result,
             commands::get_floating_selection_context,
             commands::close_floating_window,
+            commands::toggle_floating_always_on_top,
             commands::apply_floating_result,
             commands::floating_window_ready,
             commands::run_floating_follow_up,

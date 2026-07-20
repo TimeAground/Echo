@@ -83,6 +83,12 @@ pub fn floating_window_ready(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn toggle_floating_always_on_top(app: AppHandle) -> Result<bool, String> {
+    crate::overlay::toggle_floating_always_on_top(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn run_floating_follow_up(app: AppHandle, instruction: String) -> Result<String, String> {
     let source_text = crate::utils::get_floating_result()
         .filter(|value| !value.trim().is_empty())

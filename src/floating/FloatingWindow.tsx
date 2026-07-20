@@ -164,34 +164,6 @@ const renderMarkdown = (content: string) => (
   </ReactMarkdown>
 );
 
-/** Toolbar icon button with native tooltip */
-const ToolbarBtn = ({
-  icon,
-  tooltip,
-  onClick,
-  active,
-  className = "",
-}: {
-  icon: React.ReactNode;
-  tooltip: string;
-  onClick?: () => void;
-  active?: boolean;
-  className?: string;
-}) => (
-  <button
-    title={tooltip}
-    onClick={onClick}
-    className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
-      active
-        ? "text-[#9a8eff] bg-[#7b6ef6]/12"
-        : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
-    } ${className}`}
-  >
-    {icon}
-  </button>
-);
-
-
 
 const isLikelyQuestion = (value: string) => {
   if (/[?？]$/.test(value)) {
@@ -248,7 +220,7 @@ const FloatingWindow: React.FC = () => {
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [isVoiceTranscribing, setIsVoiceTranscribing] = useState(false);
-  const [isPinned, setIsPinned] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const lastExternalTextRef = useRef("");
@@ -293,10 +265,9 @@ const FloatingWindow: React.FC = () => {
     const next = !isPinned;
     setIsPinned(next);
     try {
-      const win = getCurrentWindow();
-      await win.setAlwaysOnTop(next);
+      await invoke("toggle_floating_always_on_top");
     } catch {
-      // ignore
+      setIsPinned(!next);
     }
   }, [isPinned]);
 
@@ -572,28 +543,23 @@ const FloatingWindow: React.FC = () => {
   const hasContent = conversation.length > 0;
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-[#12141e] text-white">
+    <div className="flex h-screen w-screen flex-col rounded-3xl bg-[#12141e] text-white">
       {/* Toolbar */}
       <div
         data-tauri-drag-region
         className="relative flex shrink-0 cursor-move items-center justify-end gap-1.5 px-3 py-2.5 select-none"
       >
-        <div className="group relative">
-          <button
-            title="始终置顶"
-            onClick={togglePin}
-            className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
-              isPinned
-                ? "text-[#9a8eff] bg-[#7b6ef6]/12"
-                : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
-            }`}
-          >
-            <Pin className="h-4 w-4" />
-          </button>
-          <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1e1e2e] px-3 py-1.5 text-[12px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-            始终置顶
-          </div>
-        </div>
+        <button
+          title="始终置顶"
+          onClick={togglePin}
+          className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-[15px] transition-colors ${
+            isPinned
+              ? "text-[#9a8eff] bg-[#7b6ef6]/12"
+              : "text-white/55 hover:text-white/85 hover:bg-white/[0.06]"
+          }`}
+        >
+          <Pin className="h-4 w-4" />
+        </button>
         <div className="mx-0.5 h-5 w-px bg-white/[0.06]" />
         <button
           onClick={close}

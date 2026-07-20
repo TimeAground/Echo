@@ -613,10 +613,6 @@ fn emit_floating_result(
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
     }
 
-    // Set always-on-top so the window appears above other windows.
-    // The user can toggle this off via the pin button in the toolbar.
-    let _ = window.set_always_on_top(true);
-
     window
         .show()
         .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
@@ -641,6 +637,20 @@ fn emit_floating_result(
         .map_err(|e| format!("Failed to emit floating result: {}", e))?;
 
     Ok(())
+}
+
+pub fn toggle_floating_always_on_top(app_handle: &AppHandle) -> Result<bool, String> {
+    let window = app_handle
+        .get_webview_window("floating_answer")
+        .ok_or("Floating answer window not found")?;
+    let current = window
+        .is_always_on_top()
+        .map_err(|e| format!("Failed to get always on top state: {}", e))?;
+    let next = !current;
+    window
+        .set_always_on_top(next)
+        .map_err(|e| format!("Failed to set always on top: {}", e))?;
+    Ok(next)
 }
 
 pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
