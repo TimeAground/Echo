@@ -348,7 +348,6 @@ pub fn show_initializing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "initializing");
 }
 
-
 /// Updates the overlay window position based on current settings
 pub fn update_overlay_position(app_handle: &AppHandle) {
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
@@ -440,7 +439,12 @@ pub fn floating_result_has_selection_context() -> bool {
         .unwrap_or(false)
 }
 
-/// Create the floating answer window (hidden by default)
+/// Create the floating answer window (hidden by default).
+///
+/// The floating window intentionally omits `.focused(false)` so it can be
+/// activated on Windows. Without activation (WS_EX_NOACTIVATE), the window
+/// stays within Echo's own z-order group and cannot appear above other
+/// applications when always_on_top is not set.
 #[cfg(not(target_os = "macos"))]
 pub fn create_floating_window(app_handle: &AppHandle) {
     let position = calculate_floating_position(app_handle);
@@ -460,7 +464,6 @@ pub fn create_floating_window(app_handle: &AppHandle) {
     .decorations(false)
     .skip_taskbar(true)
     .transparent(true)
-    .focused(false)
     .visible(false);
     // always_on_top is controlled by the frontend toggle button
 
@@ -588,6 +591,37 @@ pub fn update_floating_result(
     Ok(())
 }
 
+/// Make the floating window visible.
+///
+/// On Windows, `set_focus()` is scheduled on the event loop after `.show()`,
+/// because Tauri's `show()` sends an async message to make the window visible
+/// (setting tao's VISIBLE flag), but `set_focus()` checks that flag
+/// synchronously. Without this delay, `set_focus()` never calls through to
+/// `force_window_active()` (which has the Alt-key + SetForegroundWindow
+/// workaround), and the window stays behind other apps.
+fn show_floating_window(app_handle: &AppHandle) -> Result<(), String> {
+    let window = app_handle
+        .get_webview_window("floating_answer")
+        .ok_or("Floating answer window is not available")?;
+
+    window
+        .show()
+        .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
+
+    #[cfg(target_os = "windows")]
+    {
+        // Schedule set_focus after the show message has been processed by the
+        // event loop, so tao's VISIBLE flag is set and force_window_active
+        // actually runs.
+        let window_clone = window.clone();
+        let _ = window_clone.clone().run_on_main_thread(move || {
+            let _ = window_clone.set_focus();
+        });
+    }
+
+    Ok(())
+}
+
 fn emit_floating_result(
     app_handle: &AppHandle,
     text: &str,
@@ -604,9 +638,7 @@ fn emit_floating_result(
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
     }
 
-    window
-        .show()
-        .map_err(|e| format!("Failed to show floating answer window: {}", e))?;
+    show_floating_window(app_handle)?;
 
     let ready = floating_ready_store()
         .lock()

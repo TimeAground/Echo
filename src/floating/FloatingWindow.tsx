@@ -1,6 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -507,9 +506,9 @@ const FloatingWindow: React.FC = () => {
         );
       }
 
-      const win = getCurrentWindow();
-      void win.show();
-      void win.setFocus();
+      // Z-order is handled by the Rust side (SetWindowPos HWND_TOP via
+      // show_floating_window). No need for setFocus() here — it's unreliable
+      // on Windows (foreground lock) and the Rust fix is more deterministic.
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -531,6 +530,7 @@ const FloatingWindow: React.FC = () => {
     };
   }, [close, hydrateFromExternalResult, syncText]);
 
+  // Auto-scroll to bottom when conversation updates
   useEffect(() => {
     if (!contentRef.current) return;
 
@@ -538,6 +538,15 @@ const FloatingWindow: React.FC = () => {
     requestAnimationFrame(() => {
       node.scrollTop = node.scrollHeight;
     });
+  }, [conversation, isProcessing]);
+
+  // Auto-focus the input field when the window receives a non-processing result
+  useEffect(() => {
+    if (conversation.length > 0 && !isProcessing) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
   }, [conversation, isProcessing]);
 
   const hasContent = conversation.length > 0;
